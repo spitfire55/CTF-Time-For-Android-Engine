@@ -1,0 +1,15 @@
+"/"
+"/writeup/#"
+"/event/list/"
+"/event/#"
+"/event/list/upcoming"
+"/event/list/past"
+"/stats/(year)"
+"/team/#"
+"/stats/(country-code)"
+"/stats/(year)/(country-code)"
+"/ctfs/
+"/tasks/"
+"/tasks/?tags=(tag)&hidden-tags=(tag)"
+
+
