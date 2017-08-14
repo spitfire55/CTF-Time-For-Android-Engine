@@ -1,4 +1,4 @@
 cron:
 - description: ctftime-crawler
   url: /
-  schedule: every 1 mins
+  schedule: every 15 mins
