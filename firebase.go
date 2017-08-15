@@ -1,23 +1,30 @@
 package main
 
 import (
-	"log"
-	"gopkg.in/zabawaba99/firego.v1"
 	"io/ioutil"
+	"log"
+
+	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
 	"golang.org/x/oauth2/jwt"
-	"golang.org/x/net/context"
+	"gopkg.in/zabawaba99/firego.v1"
 )
 
-func test(ctx context.Context) map[string]interface{} {
-	authClient := authenticate()
-	fb := firego.New("https://ctf-time-for-android.firebaseio.com/", authClient.Client(ctx))
+type Firebase struct {
+	fbInstance *firego.Firebase
+	context    context.Context
+	jwtConfig  *jwt.Config
+}
+var fb Firebase
 
-	var v map[string]interface{}
-	if err := fb.Value(&v); err != nil {
-		log.Fatal(err)
-	}
-	return v
+func connect(ctx context.Context) {
+	fb.jwtConfig = authenticate()
+	fb.context = ctx
+	fb.fbInstance = firego.New("https://ctf-time-for-android.firebaseio.com/", fb.jwtConfig.Client(fb.context))
+}
+
+func saveTeams(teamRankings interface{}) {
+	fb.fbInstance.Child("Rankings").Set(teamRankings)
 }
 
 func authenticate() *jwt.Config {
