@@ -23,8 +23,16 @@ func connect(ctx context.Context) {
 	fb.fbInstance = firego.New("https://ctf-time-for-android.firebaseio.com/", fb.jwtConfig.Client(fb.context))
 }
 
-func saveTeams(teamRankings interface{}) {
-	fb.fbInstance.Child("Rankings").Set(teamRankings)
+func saveAllRankings(teamRankings interface{}) {
+	if err := fb.fbInstance.Child("Rankings").Set(teamRankings); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func saveCurrentRankings(teamRankings interface{}) {
+	if err := fb.fbInstance.Child("Rankings").Child("2017").Set(teamRankings); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func authenticate() *jwt.Config {

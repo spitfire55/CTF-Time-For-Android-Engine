@@ -1,10 +1,10 @@
 /*
-Package ctftime enables storing data from ctftime.org in a Firebase database.
+This project enables storing data from ctftime.org in a Firebase database.
 For some aspects of the website, the API does not easily expose the data needed to build
 a robust mobile application. As a result, some web scraping is done in order to
 acquire content such as writeups.
 
-The following license applies to all package files:
+The following license applies to all main package Go files:
 
 Copyright 2017 Dale Lakes
 
@@ -33,6 +33,11 @@ import (
 	"google.golang.org/appengine/urlfetch"
 )
 
+func init() {
+	http.HandleFunc("/", rootHandler)
+	http.HandleFunc("/current-rankings", checkCurrentRankingsHandler)
+}
+
 func rootHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	client := &http.Client{
@@ -51,13 +56,35 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	ranking := getTeamRankings(body)
+	ranking := getAllRankings(body)
 	connect(ctx)
-	saveTeams(ranking)
+	saveAllRankings(ranking)
+}
+
+func checkCurrentRankingsHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	client := &http.Client{
+		Transport: &urlfetch.Transport{
+			Context: ctx,
+			// local dev app server doesn't like Lets Encrypt certs...
+			AllowInvalidServerCertificate: appengine.IsDevAppServer(),
+		},
+	}
+	resp, err := client.Get("https://ctftime.org/api/v1/top/2017/")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	ranking := getCurrentRankings(body)
+	connect(ctx)
+	saveCurrentRankings(ranking)
 }
 
 func main() {
-	http.HandleFunc("/", rootHandler)
 	http.ListenAndServe("localhost:8080", nil)
 	appengine.Main()
 }
