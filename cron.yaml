@@ -1,0 +1,4 @@
+cron:
+- description: ctftime-crawler
+  url: /current-rankings
+  schedule: every 12 hours synchronized
