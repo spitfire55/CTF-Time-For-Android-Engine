@@ -1,6 +1,9 @@
 api_version: go1
 runtime: go
 
+env_variables:
+  FIREBASE_BASE: "https://ctf-time-for-android.firebaseio.com"
+
 handlers:
 - url: /.*
   script: _go_app
