@@ -30,13 +30,9 @@ type Rankings struct {
 // will be used to store only the rankings from AllRankings that actually exist (ignore json:"-" values)
 type ValidRankings [][]Rankings
 
-type KeyedRankingsYear map[string]KeyedRankingValue
+type KeyedRankingsYear map[string]Rankings
 type KeyedRankingsAll map[string]KeyedRankingsYear
 
-type KeyedRankingValue struct {
-	TeamName string `json:"team_name"`
-	Points float64 `json:"points"`
-}
 func getAllRankings(jsonStream []byte) KeyedRankingsAll {
 
 	var results AllRankings
@@ -53,11 +49,11 @@ func getAllRankings(jsonStream []byte) KeyedRankingsAll {
 	var keyRankings = make(KeyedRankingsAll, len(validRankings))
 	for i, yearRankings := range validRankings {
 		// initialize inner map. Key = team id, value = KeyedRankingValue interface
-		keyRankings[validRankingsYears[i]] = make(map[string]KeyedRankingValue, len(validRankings[i]))
-		for _, ranking := range yearRankings {
+		keyRankings[validRankingsYears[i]] = make(map[string]Rankings, len(validRankings[i]))
+		for j, ranking := range yearRankings {
 			// indices of validRankingsYears align to the order in which validRankings are stored and thus, contains the correct
 			// year to use as a key value for the outer maps. 0 = 2012, 1 = 2015, etc.
-			keyRankings[validRankingsYears[i]][strconv.Itoa(ranking.Id)] = KeyedRankingValue{ranking.TeamName, ranking.Points}
+			keyRankings[validRankingsYears[i]][strconv.Itoa(j)] = ranking
 		}
 	}
 	return keyRankings
@@ -70,9 +66,9 @@ func getCurrentRankings(jsonStream []byte) KeyedRankingsYear {
 		log.Fatal(err)
 	}
 
-	var keyCurrentRankings = make(map[string]KeyedRankingValue, len(results.Rankings))
-	for _, ranking := range results.Rankings {
-		keyCurrentRankings[strconv.Itoa(ranking.Id)] = KeyedRankingValue{ranking.TeamName, ranking.Points}
+	var keyCurrentRankings = make(map[string]Rankings, len(results.Rankings))
+	for i, ranking := range results.Rankings {
+		keyCurrentRankings[strconv.Itoa(i)] = ranking
 	}
 	return keyCurrentRankings
 }
