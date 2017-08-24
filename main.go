@@ -29,6 +29,7 @@ import (
 	"log"
 	"net/http"
 
+	"golang.org/x/net/context"
 	"google.golang.org/appengine"
 	"google.golang.org/appengine/urlfetch"
 )
@@ -38,53 +39,40 @@ func init() {
 	http.HandleFunc("/current-rankings", checkCurrentRankingsHandler)
 }
 
-func rootHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := appengine.NewContext(r)
-	client := &http.Client{
+func setup(url string, ctx context.Context, w http.ResponseWriter) []byte {
+	client := &http.Client {
 		Transport: &urlfetch.Transport{
 			Context: ctx,
-			// local dev app server doesn't like Lets Encrypt certs...
 			AllowInvalidServerCertificate: appengine.IsDevAppServer(),
 		},
 	}
-	resp, err := client.Get("https://ctftime.org/api/v1/top/")
+	resp, err := client.Get(url)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
 	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatal(err)
 	}
+	return body
+}
+
+func rootHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	body := setup("https://ctftime.org/api/v1/top/", ctx, w)
 	ranking := getAllRankings(body)
 	connect(ctx)
-	saveAllRankings(ranking)
+	saveAllRankings(ranking, ctx)
 }
 
 func checkCurrentRankingsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
-	client := &http.Client{
-		Transport: &urlfetch.Transport{
-			Context: ctx,
-			// local dev app server doesn't like Lets Encrypt certs...
-			AllowInvalidServerCertificate: appengine.IsDevAppServer(),
-		},
-	}
-	resp, err := client.Get("https://ctftime.org/api/v1/top/2017/")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
+	body := setup("https://ctftime.org/api/v1/top/2017/", ctx, w)
 	ranking := getCurrentRankings(body)
 	connect(ctx)
-	saveCurrentRankings(ranking)
+	saveCurrentRankings(ranking, ctx)
 }
 
 func main() {
-	http.ListenAndServe("localhost:8080", nil)
 	appengine.Main()
 }
