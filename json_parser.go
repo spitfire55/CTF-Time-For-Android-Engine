@@ -6,6 +6,9 @@ import (
 	"strconv"
 )
 
+/*
+ * RANKINGS
+ */
 type AllRankings struct {
 	Sixteen   []Rankings `json:"2016"`
 	Seventeen []Rankings `json:"2017"`
@@ -32,6 +35,30 @@ type ValidRankings [][]Rankings
 
 type KeyedRankingsYear map[string]Rankings
 type KeyedRankingsAll map[string]KeyedRankingsYear
+
+/*
+ * TEAMS
+ */
+
+type Team struct {
+	Country string `json:"country"`
+	Academic bool `json:"academic"`
+	Id int `json:"id"`
+	Name string `json:"name"`
+	Aliases []string `json:"aliases"`
+}
+
+type KeyedTeam struct {
+	Country string `json:"country"`
+	Academic bool `json:"academic"`
+	Id int `json:"-"`
+	Name string `json:"name"`
+	Aliases []string `json:"aliases"`
+}
+
+type Teams []Team
+type KeyedTeams map[string]KeyedTeam
+
 
 func getAllRankings(jsonStream []byte) KeyedRankingsAll {
 
@@ -71,4 +98,27 @@ func getCurrentRankings(jsonStream []byte) KeyedRankingsYear {
 		keyCurrentRankings[strconv.Itoa(i)] = ranking
 	}
 	return keyCurrentRankings
+}
+
+func getAllTeams(jsonStream []byte) KeyedTeams {
+	var teams Teams
+	err := json.Unmarshal(jsonStream, &teams)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	keyTeams := make(map[string]KeyedTeam)
+	for _, team := range teams {
+		key := strconv.Itoa(team.Id)
+		var value KeyedTeam
+		value = KeyedTeam {
+			team.Country,
+			team.Academic,
+			team.Id,
+			team.Name,
+			team.Aliases,
+		}
+		keyTeams[key] = value
+	}
+	return keyTeams
 }

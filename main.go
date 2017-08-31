@@ -1,27 +1,3 @@
-/*
-This project enables storing data from ctftime.org in a Firebase database.
-For some aspects of the website, the API does not easily expose the data needed to build
-a robust mobile application. As a result, some web scraping is done in order to
-acquire content such as writeups.
-
-The following license applies to all main package Go files:
-
-Copyright 2017 Dale Lakes
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the Software without restriction, including without limitation
-the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of
-the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
-WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-*/
 package main
 
 import (
@@ -37,6 +13,8 @@ import (
 func init() {
 	http.HandleFunc("/", rootHandler)
 	http.HandleFunc("/current-rankings", checkCurrentRankingsHandler)
+	http.HandleFunc("/all-teams", allTeamsHandler)
+	http.HandleFunc("/check-new-team", checkNewTeamHandler)
 }
 
 func setup(url string, ctx context.Context, w http.ResponseWriter) []byte {
@@ -51,6 +29,7 @@ func setup(url string, ctx context.Context, w http.ResponseWriter) []byte {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 	body, err := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -71,6 +50,20 @@ func checkCurrentRankingsHandler(w http.ResponseWriter, r *http.Request) {
 	ranking := getCurrentRankings(body)
 	connect(ctx)
 	saveCurrentRankings(ranking, ctx)
+}
+
+func allTeamsHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	body := setup("https://ctftime.org/api/v1/teams/", ctx, w)
+	ranking := getAllTeams(body)
+	connect(ctx)
+	saveAllTeams(ranking, ctx)
+}
+
+func checkNewTeamHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	connect(ctx)
+	recursiveTeamCheck(ctx, w)
 }
 
 func main() {
