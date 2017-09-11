@@ -1,4 +1,4 @@
-api_version: go1
+api_version: go1.8
 runtime: go
 
 env_variables:

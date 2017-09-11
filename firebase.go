@@ -1,17 +1,14 @@
 package main
 
 import (
-	//"fmt"
 	"os"
-	//"strconv"
+	"strconv"
 
 	"github.com/zabawaba99/firego"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/appengine/log"
-
-	"fmt"
-	"strconv"
+	"encoding/base64"
 )
 
 var fb *firego.Firebase
@@ -45,27 +42,61 @@ func saveAllTeams(teams interface{}, ctx context.Context) {
 	}
 }
 
-func getHighestNode(ctx context.Context) string {
-	highestNode := fb.Child("TeamHighestNode")
-	highestNodeValue := fmt.Sprintf("%d", highestNode)
-	return highestNodeValue
+func setHighestNode(ctx context.Context, node int) {
+	if err := fb.Child("TeamHighestNode").Set(node); err != nil {
+		log.Errorf(ctx, err.Error())
+	}
+}
+
+func getHighestNode(ctx context.Context) int {
+	var highestNode int
+	fb.Child("TeamHighestNode").Value(&highestNode)
+	return highestNode
 }
 
 func saveNewTeam(team interface{}, ctx context.Context) {
 	highestNode := getHighestNode(ctx)
 	// nil value passed in for team if we have reached highest team ID
 	if team != nil {
-		if err := fb.Child("Teams/" + highestNode).Set(team); err != nil {
-			log.Errorf(ctx, err.Error())
-		}
-		highestNodeInt, err := strconv.Atoi(highestNode)
+		err := fb.Child("Teams/" + strconv.Itoa(highestNode)).Set(team)
 		if err != nil {
 			log.Errorf(ctx, err.Error())
 		}
-		if err := fb.Child("TeamHighestNode").Set( highestNodeInt+ 1); err != nil {
+		err = fb.Child("TeamHighestNode").Set( highestNode+ 1)
+		if err != nil {
 			log.Errorf(ctx, err.Error())
 		}
 	}
+}
 
-
+func convertTeams(ctx context.Context) {
+	var teams []KeyedTeam
+	if err := fb.Child("Teams").Value(&teams); err != nil {
+		log.Errorf(ctx, err.Error())
+	}
+	for i, v := range teams {
+		if v.Name != "" {
+			intId := i
+			fb.Child("TeamsByName/" + base64.URLEncoding.EncodeToString([]byte(v.Name))).Set(intId)
+			if v.Country != "" {
+				fb.Child("TeamsByCountry/" + v.Country + "/" +
+					strconv.Itoa(intId)).Set(true)
+			}
+			if v.Aliases != nil {
+				for _, name := range v.Aliases {
+					fb.Child("TeamsByName/" + base64.URLEncoding.EncodeToString([]byte(name))).Set(intId)
+				}
+			}
+			if v.Ratings != nil {
+				for year, rating := range v.Ratings {
+					simpleRating := SimpleRating{
+						rating.RatingPoints,
+						intId,
+					}
+					fb.Child("TeamsByPlace/" + year + "/" +
+						strconv.Itoa(rating.RatingPlace)).Set(simpleRating)
+				}
+			}
+		}
+	}
 }

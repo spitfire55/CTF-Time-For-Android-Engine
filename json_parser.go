@@ -25,12 +25,11 @@ type CurrentRankings struct {
 }
 
 type Rankings struct {
-	TeamName string  `json:"team_name"`
-	Points   float64 `json:"points"`
-	Id       int     `json:"team_id"`
+	TeamName string  `json:"team_name,omitempty"`
+	Points   float64 `json:"points,omitempty"`
+	Id       int     `json:"team_id,omitempty"`
 }
 
-// will be used to store only the rankings from AllRankings that actually exist (ignore json:"-" values)
 type ValidRankings [][]Rankings
 
 type KeyedRankingsYear map[string]Rankings
@@ -46,14 +45,35 @@ type Team struct {
 	Id int `json:"id"`
 	Name string `json:"name"`
 	Aliases []string `json:"aliases"`
+	Ratings []RatingYear `json:"rating"`
 }
 
 type KeyedTeam struct {
-	Country string `json:"country"`
+	Country string `json:"country,omitempty"`
 	Academic bool `json:"academic"`
 	Id int `json:"-"`
 	Name string `json:"name"`
-	Aliases []string `json:"aliases"`
+	Aliases []string `json:"aliases,omitempty"`
+	Ratings map[string]Rating `json:"rating,omitempty"`
+}
+
+type RatingYear struct {
+	Seventeen Rating `json:"2017"`
+	Sixteen Rating `json:"2016"`
+	Fifteen Rating `json:"2015"`
+	Twelve Rating `json:"2012"`
+}
+
+type Rating struct {
+	OrganizerPoints float64 `json:"organizer_points"`
+	RatingPoints float64 `json:"rating_points"`
+	RatingPlace int `json:"rating_place"`
+}
+
+// key value will be place
+type SimpleRating struct {
+	Points float64
+	Id int
 }
 
 type Teams []Team
@@ -100,6 +120,7 @@ func getCurrentRankings(jsonStream []byte) KeyedRankingsYear {
 	return keyCurrentRankings
 }
 
+/*
 func getAllTeams(jsonStream []byte) KeyedTeams {
 	var teams Teams
 	err := json.Unmarshal(jsonStream, &teams)
@@ -117,8 +138,44 @@ func getAllTeams(jsonStream []byte) KeyedTeams {
 			team.Id,
 			team.Name,
 			team.Aliases,
+			nil,
 		}
 		keyTeams[key] = value
 	}
 	return keyTeams
+}
+*/
+
+func getSingleTeam(jsonStream []byte) (KeyedTeam, int) {
+	var team Team
+	err := json.Unmarshal(jsonStream, &team)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	finalRatings := make(map[string]Rating)
+	for _, team := range team.Ratings {
+		if team.Twelve.RatingPlace != 0 {
+			finalRatings["2012"] = team.Twelve
+		}
+		if team.Fifteen.RatingPlace != 0 {
+			finalRatings["2015"] = team.Fifteen
+		}
+		if team.Sixteen.RatingPlace != 0 {
+			finalRatings["2016"] = team.Sixteen
+		}
+		if team.Seventeen.RatingPlace != 0 {
+			finalRatings["2017"] = team.Seventeen
+		}
+	}
+	var value KeyedTeam
+	value = KeyedTeam {
+		team.Country,
+		team.Academic,
+		team.Id,
+		team.Name,
+		team.Aliases,
+		finalRatings,
+	}
+	return value, team.Id
 }

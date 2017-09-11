@@ -2,7 +2,6 @@ package main
 
 import (
 	"io/ioutil"
-	"log"
 	"net/http"
 
 	"golang.org/x/net/context"
@@ -13,8 +12,9 @@ import (
 func init() {
 	http.HandleFunc("/", rootHandler)
 	http.HandleFunc("/current-rankings", checkCurrentRankingsHandler)
-	http.HandleFunc("/all-teams", allTeamsHandler)
+	//http.HandleFunc("/all-teams", allTeamsHandler)
 	http.HandleFunc("/check-new-team", checkNewTeamHandler)
+	http.HandleFunc("/convert-team", convertTeamHandler)
 }
 
 func setup(url string, ctx context.Context, w http.ResponseWriter) []byte {
@@ -29,10 +29,10 @@ func setup(url string, ctx context.Context, w http.ResponseWriter) []byte {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 	body, err := ioutil.ReadAll(resp.Body)
-	defer resp.Body.Close()
 	if err != nil {
-		log.Fatal(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+	defer resp.Body.Close()
 	return body
 }
 
@@ -52,6 +52,7 @@ func checkCurrentRankingsHandler(w http.ResponseWriter, r *http.Request) {
 	saveCurrentRankings(ranking, ctx)
 }
 
+/*
 func allTeamsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	body := setup("https://ctftime.org/api/v1/teams/", ctx, w)
@@ -59,11 +60,18 @@ func allTeamsHandler(w http.ResponseWriter, r *http.Request) {
 	connect(ctx)
 	saveAllTeams(ranking, ctx)
 }
+*/
 
 func checkNewTeamHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	connect(ctx)
 	recursiveTeamCheck(ctx, w)
+}
+
+func convertTeamHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	connect(ctx)
+	convertTeams(ctx)
 }
 
 func main() {
