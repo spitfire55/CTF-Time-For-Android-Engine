@@ -5,74 +5,79 @@ import (
 	"strconv"
 
 	"github.com/zabawaba99/firego"
-	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
-	"google.golang.org/appengine/log"
 	"encoding/base64"
+	"context"
+	"log"
+	"io/ioutil"
 )
 
 var fb *firego.Firebase
 
 func connect(ctx context.Context) {
 
-	hc, err := google.DefaultClient(ctx,
-		"https://www.googleapis.com/auth/firebase.database",
-		"https://www.googleapis.com/auth/userinfo.email")
+	token, err := ioutil.ReadFile("ctf-time-token.json")
 	if err != nil {
-		log.Errorf(ctx, err.Error())
+		log.Fatal(err)
 	}
-	fb = firego.New(os.Getenv("FIREBASE_BASE"), hc)
+	conf, err := google.JWTConfigFromJSON(token,
+		"https://www.googleapis.com/auth/userinfo.email",
+		"https://www.googleapis.com/auth/firebase.database")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fb = firego.New(os.Getenv("FIREBASE_BASE"), conf.Client(ctx))
 }
 
-func saveAllRankings(teamRankings interface{}, ctx context.Context) {
+func saveAllRankings(teamRankings interface{}) {
 	if err := fb.Child("Rankings").Set(teamRankings); err != nil {
-		log.Errorf(ctx, err.Error())
+		log.Fatal(err)
 	}
 }
 
-func saveCurrentRankings(teamRankings interface{}, ctx context.Context) {
+func saveCurrentRankings(teamRankings interface{}) {
 	if err := fb.Child("Rankings/2017").Set(teamRankings); err != nil {
-		log.Errorf(ctx, err.Error())
+		log.Fatal(err)
 	}
 }
 
-func saveAllTeams(teams interface{}, ctx context.Context) {
+func saveAllTeams(teams interface{}) {
 	if err:= fb.Child("Teams").Set(teams); err != nil {
-		log.Errorf(ctx, err.Error())
+		log.Fatal(err)
 	}
 }
 
-func setHighestNode(ctx context.Context, node int) {
+func setHighestNode(node int) {
 	if err := fb.Child("TeamHighestNode").Set(node); err != nil {
-		log.Errorf(ctx, err.Error())
+		log.Fatal(err)
 	}
 }
 
-func getHighestNode(ctx context.Context) int {
+func getHighestNode() int {
 	var highestNode int
 	fb.Child("TeamHighestNode").Value(&highestNode)
 	return highestNode
 }
 
-func saveNewTeam(team interface{}, ctx context.Context) {
-	highestNode := getHighestNode(ctx)
+func saveNewTeam(team interface{}) {
+	highestNode := getHighestNode()
 	// nil value passed in for team if we have reached highest team ID
 	if team != nil {
 		err := fb.Child("Teams/" + strconv.Itoa(highestNode)).Set(team)
 		if err != nil {
-			log.Errorf(ctx, err.Error())
+			log.Fatal(err)
 		}
 		err = fb.Child("TeamHighestNode").Set( highestNode+ 1)
 		if err != nil {
-			log.Errorf(ctx, err.Error())
+			log.Fatal(err)
 		}
 	}
 }
 
-func convertTeams(ctx context.Context) {
+func convertTeams() {
 	var teams []KeyedTeam
 	if err := fb.Child("Teams").Value(&teams); err != nil {
-		log.Errorf(ctx, err.Error())
+		log.Fatal(err)
 	}
 	for i, v := range teams {
 		if v.Name != "" {

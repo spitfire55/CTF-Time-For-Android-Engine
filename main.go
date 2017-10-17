@@ -3,27 +3,15 @@ package main
 import (
 	"io/ioutil"
 	"net/http"
-
-	"golang.org/x/net/context"
-	"google.golang.org/appengine"
-	"google.golang.org/appengine/urlfetch"
+	"context"
 )
 
 func init() {
-	http.HandleFunc("/", rootHandler)
-	http.HandleFunc("/current-rankings", checkCurrentRankingsHandler)
-	//http.HandleFunc("/all-teams", allTeamsHandler)
-	http.HandleFunc("/check-new-team", checkNewTeamHandler)
-	http.HandleFunc("/convert-team", convertTeamHandler)
+
 }
 
-func setup(url string, ctx context.Context, w http.ResponseWriter) []byte {
-	client := &http.Client {
-		Transport: &urlfetch.Transport{
-			Context: ctx,
-			AllowInvalidServerCertificate: appengine.IsDevAppServer(),
-		},
-	}
+func setup(url string, w http.ResponseWriter) []byte {
+	client := &http.Client {}
 	resp, err := client.Get(url)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -37,43 +25,38 @@ func setup(url string, ctx context.Context, w http.ResponseWriter) []byte {
 }
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := appengine.NewContext(r)
-	body := setup("https://ctftime.org/api/v1/top/", ctx, w)
+	ctx := context.Background()
+	body := setup("https://ctftime.org/api/v1/top/", w)
 	ranking := getAllRankings(body)
 	connect(ctx)
-	saveAllRankings(ranking, ctx)
+	saveAllRankings(ranking)
 }
 
 func checkCurrentRankingsHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := appengine.NewContext(r)
-	body := setup("https://ctftime.org/api/v1/top/2017/", ctx, w)
+	ctx := context.Background()
+	body := setup("https://ctftime.org/api/v1/top/2017/", w)
 	ranking := getCurrentRankings(body)
 	connect(ctx)
-	saveCurrentRankings(ranking, ctx)
+	saveCurrentRankings(ranking)
 }
 
-/*
-func allTeamsHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := appengine.NewContext(r)
-	body := setup("https://ctftime.org/api/v1/teams/", ctx, w)
-	ranking := getAllTeams(body)
+func updateAllTeamsHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
 	connect(ctx)
-	saveAllTeams(ranking, ctx)
-}
-*/
-
-func checkNewTeamHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := appengine.NewContext(r)
-	connect(ctx)
-	recursiveTeamCheck(ctx, w)
+	updateAllTeams(ctx, w)
 }
 
 func convertTeamHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := appengine.NewContext(r)
+	ctx := context.Background()
 	connect(ctx)
-	convertTeams(ctx)
+	convertTeams()
 }
 
 func main() {
-	appengine.Main()
+	http.HandleFunc("/", rootHandler)
+	http.HandleFunc("/current-rankings", checkCurrentRankingsHandler)
+	//http.HandleFunc("/all-teams", allTeamsHandler)
+	http.HandleFunc("/update-new-team", updateAllTeamsHandler)
+	http.HandleFunc("/convert-team", convertTeamHandler)
+	http.ListenAndServe(":80", nil)
 }

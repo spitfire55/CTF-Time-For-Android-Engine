@@ -12,24 +12,23 @@ import (
 	"encoding/base64"
 )
 
+func updateAllTeams(ctx context.Context, w http.ResponseWriter) {
+
+}
+
 func recursiveTeamCheck(ctx context.Context, w http.ResponseWriter) {
 	body := checkNewTeam(ctx, w)
 	if body != nil {
 		bodyKeyed, id := getSingleTeam(body)
-		saveNewTeam(bodyKeyed, ctx)
-		convertNewTeam(bodyKeyed, id, ctx)
+		saveNewTeam(bodyKeyed)
+		convertNewTeam(bodyKeyed, id)
 		recursiveTeamCheck(ctx, w)
 	}
 }
 
 func checkNewTeam(ctx context.Context, w http.ResponseWriter) []byte {
-	highestNode := getHighestNode(ctx)
-	client := &http.Client{
-		Transport: &urlfetch.Transport{
-			Context: ctx,
-			AllowInvalidServerCertificate: appengine.IsDevAppServer(),
-		},
-	}
+	highestNode := getHighestNode()
+	client := &http.Client{}
 	highestNodeString:= strconv.Itoa(highestNode)
 	baseUrl := "https://ctftime.org/api/v1/teams/"
 	resp, err := client.Get(baseUrl + highestNodeString + "/")
@@ -44,7 +43,7 @@ func checkNewTeam(ctx context.Context, w http.ResponseWriter) []byte {
 	return body
 }
 
-func convertNewTeam(team KeyedTeam, id int, ctx context.Context) {
+func convertNewTeam(team KeyedTeam, id int) {
 
 	fb.Child("TeamsByName/" +
 		base64.URLEncoding.EncodeToString([]byte(team.Name))).Set(id)

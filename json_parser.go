@@ -120,7 +120,7 @@ func getCurrentRankings(jsonStream []byte) KeyedRankingsYear {
 	return keyCurrentRankings
 }
 
-/*
+
 func getAllTeams(jsonStream []byte) KeyedTeams {
 	var teams Teams
 	err := json.Unmarshal(jsonStream, &teams)
@@ -144,7 +144,7 @@ func getAllTeams(jsonStream []byte) KeyedTeams {
 	}
 	return keyTeams
 }
-*/
+
 
 func getSingleTeam(jsonStream []byte) (KeyedTeam, int) {
 	var team Team
