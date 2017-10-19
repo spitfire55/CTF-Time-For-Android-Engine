@@ -1,29 +1,29 @@
 package main
 
 import (
-	"context"
 	"io/ioutil"
 	"net/http"
 
-	"github.com/zabawaba99/firego"
+	"cloud.google.com/go/firestore"
 )
 
 type FirebaseContext struct {
 	w  http.ResponseWriter
-	r  *http.Request
-	c  *http.Client
-	fb *firego.Firebase
+	r  http.Request
+	c  http.Client // client used to GET from ctftime.org
+	fb firestore.Client //client used to POST to Firestore
 }
 
-func fetch(url string, fbc FirebaseContext) []byte {
-	client := &http.Client{}
-	resp, err := client.Get(url)
+func fetch(url string, fbc *FirebaseContext) []byte {
+	resp, err := fbc.c.Get(url)
 	if err != nil {
 		http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
+		return nil
 	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
+		return nil
 	}
 	defer resp.Body.Close()
 	return body
@@ -31,33 +31,35 @@ func fetch(url string, fbc FirebaseContext) []byte {
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
 	fbc := FirebaseContext{
-		w, r, &http.Client{}, connect(r.Context()),
+		w, *r, http.Client{}, *connect(),
+
 	}
-	body := fetch("https://ctftime.org/api/v1/top/", fbc)
+	body := fetch("https://ctftime.org/api/v1/top/", &fbc)
 	ranking := getAllRankings(body)
-	saveAllRankings(ranking)
+	saveAllRankings(ranking, fbc.fb)
 }
 
 func checkCurrentRankingsHandler(w http.ResponseWriter, r *http.Request) {
 	fbc := FirebaseContext {
-		w, r, &http.Client{}, connect(r.Context()),
+		w, r, &http.Client{}, connect(),
 	}
 	body := fetch("https://ctftime.org/api/v1/top/2017/", fbc)
 	ranking := getCurrentRankings(body)
-	saveCurrentRankings(ranking)
+	saveCurrentRankings(ranking, fbc.fb)
 }
 
 func updateAllTeamsHandler(w http.ResponseWriter, r *http.Request) {
-
-	ctx := context.Background()
-	connect(ctx)
-	updateAllTeams(ctx, w, r)
+	fbc := FirebaseContext {
+		&w, r, &http.Client{}, connect(),
+	}
+	updateAllTeams(fbc)
 }
 
 func convertTeamHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
-	connect(ctx)
-	convertTeams()
+	fbc := FirebaseContext{
+		&w, r, &http.Client{}, connect(),
+	}
+	convertTeams(fbc.fb)
 }
 
 func main() {

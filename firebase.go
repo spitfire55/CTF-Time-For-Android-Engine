@@ -3,76 +3,59 @@ package main
 import (
 	"os"
 	"strconv"
-
-	"github.com/zabawaba99/firego"
-	"golang.org/x/oauth2/google"
+	"net/http"
 	"encoding/base64"
 	"context"
 	"log"
-	"io/ioutil"
+	"google.golang.org/api/option"
+	"cloud.google.com/go/firestore"
 )
 
-func connect(ctx context.Context) *firego.Firebase {
-
-	token, err := ioutil.ReadFile("ctf-time-token.json")
+func connect() *firestore.Client {
+	ctx := context.Background()
+	token := option.WithCredentialsFile("ctf-time-engine.json")
+	client, err := firestore.NewClient(ctx, os.Getenv("FIREBASE_ID"), token)
 	if err != nil {
-		log.Fatal(err)
+		return nil
+	} else {
+		return client
 	}
-	conf, err := google.JWTConfigFromJSON(token,
-		"https://www.googleapis.com/auth/userinfo.email",
-		"https://www.googleapis.com/auth/firebase.database")
+}
+
+func saveCurrentRankings(teamRankings interface{}, fbc *FirebaseContext) {
+	_, err := fbc.fb.Collection("Rankings").Doc("2017").Set(fbc.r.Context(), teamRankings)
 	if err != nil {
-		log.Fatal(err)
-	}
-	return firego.New(os.Getenv("FIREBASE_BASE"), conf.Client(ctx))
-}
-
-func saveAllRankings(teamRankings interface{}) {
-	if err := fb.Child("Rankings").Set(teamRankings); err != nil {
-		log.Fatal(err)
+		http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
-func saveCurrentRankings(teamRankings interface{}) {
-	if err := fb.Child("Rankings/2017").Set(teamRankings); err != nil {
-		log.Fatal(err)
+func setHighestNode(node int, fbc *FirebaseContext) {
+	_, err := fbc.fb.Doc("TeamHighestNode").Set(fbc.r.Context(), node)
+	if err != nil {
+		http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
-func saveAllTeams(teams interface{}) {
-	if err:= fb.Child("Teams").Set(teams); err != nil {
-		log.Fatal(err)
+func getHighestNode(fbc *FirebaseContext) int {
+	node, err:= fbc.fb.Doc("TeamHighestNode").Get(fbc.r.Context())
+	if err != nil {
+		http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
 	}
+	return node.Data()["node"].(int)
 }
 
-func setHighestNode(node int) {
-	if err := fb.Child("TeamHighestNode").Set(node); err != nil {
-		log.Fatal(err)
-	}
-}
-
-func getHighestNode() int {
-	var highestNode int
-	fb.Child("TeamHighestNode").Value(&highestNode)
-	return highestNode
-}
-
-func saveNewTeam(team interface{}) {
-	highestNode := getHighestNode()
+func saveNewTeam(node int, team interface{}, fbc *FirebaseContext) {
 	// nil value passed in for team if we have reached highest team ID
 	if team != nil {
-		err := fb.Child("Teams/" + strconv.Itoa(highestNode)).Set(team)
-		if err != nil {
-			log.Fatal(err)
-		}
-		err = fb.Child("TeamHighestNode").Set( highestNode+ 1)
+		_, err := fbc.fb.Collection("Teams").Doc(strconv.Itoa(node)).Set(fbc.r.Context(), team)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 }
 
-func convertTeams() {
+//TODO: Overhaul this to be less ugly
+func convertTeams(fbc *FirebaseContext) {
 	var teams []KeyedTeam
 	if err := fb.Child("Teams").Value(&teams); err != nil {
 		log.Fatal(err)
