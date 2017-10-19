@@ -2,8 +2,6 @@ package main
 
 import (
 	"golang.org/x/net/context"
-	"google.golang.org/appengine"
-	"google.golang.org/appengine/urlfetch"
 
 	"io/ioutil"
 	"net/http"
@@ -12,26 +10,27 @@ import (
 	"encoding/base64"
 )
 
-func updateAllTeams(ctx context.Context, w http.ResponseWriter) {
-
+func updateAllTeams(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	highestNode := getHighestNode()
+	for x := 0; x < highestNode; x++ {
+		nodeStr:= strconv.Itoa(x)
+		go updateSingleTeam(nodeStr, ctx, w, r)
+	}
 }
 
-func recursiveTeamCheck(ctx context.Context, w http.ResponseWriter) {
-	body := checkNewTeam(ctx, w)
+func updateSingleTeam(node string, ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	body := checkNewTeam(node, ctx, w)
 	if body != nil {
 		bodyKeyed, id := getSingleTeam(body)
 		saveNewTeam(bodyKeyed)
 		convertNewTeam(bodyKeyed, id)
-		recursiveTeamCheck(ctx, w)
 	}
 }
 
-func checkNewTeam(ctx context.Context, w http.ResponseWriter) []byte {
-	highestNode := getHighestNode()
+func checkNewTeam(node string, ctx context.Context, w http.ResponseWriter) []byte {
 	client := &http.Client{}
-	highestNodeString:= strconv.Itoa(highestNode)
 	baseUrl := "https://ctftime.org/api/v1/teams/"
-	resp, err := client.Get(baseUrl + highestNodeString + "/")
+	resp, err := client.Get(baseUrl + node + "/")
 	// if this team ID does not exist
 	if err != nil || resp.StatusCode != 200 {
 		return nil

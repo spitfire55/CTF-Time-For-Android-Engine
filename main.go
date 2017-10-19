@@ -1,49 +1,57 @@
 package main
 
 import (
+	"context"
 	"io/ioutil"
 	"net/http"
-	"context"
+
+	"github.com/zabawaba99/firego"
 )
 
-func init() {
-
+type FirebaseContext struct {
+	w  http.ResponseWriter
+	r  *http.Request
+	c  *http.Client
+	fb *firego.Firebase
 }
 
-func setup(url string, w http.ResponseWriter) []byte {
-	client := &http.Client {}
+func fetch(url string, fbc FirebaseContext) []byte {
+	client := &http.Client{}
 	resp, err := client.Get(url)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
 	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
 	}
 	defer resp.Body.Close()
 	return body
 }
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
-	body := setup("https://ctftime.org/api/v1/top/", w)
+	fbc := FirebaseContext{
+		w, r, &http.Client{}, connect(r.Context()),
+	}
+	body := fetch("https://ctftime.org/api/v1/top/", fbc)
 	ranking := getAllRankings(body)
-	connect(ctx)
 	saveAllRankings(ranking)
 }
 
 func checkCurrentRankingsHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
-	body := setup("https://ctftime.org/api/v1/top/2017/", w)
+	fbc := FirebaseContext {
+		w, r, &http.Client{}, connect(r.Context()),
+	}
+	body := fetch("https://ctftime.org/api/v1/top/2017/", fbc)
 	ranking := getCurrentRankings(body)
-	connect(ctx)
 	saveCurrentRankings(ranking)
 }
 
 func updateAllTeamsHandler(w http.ResponseWriter, r *http.Request) {
+
 	ctx := context.Background()
 	connect(ctx)
-	updateAllTeams(ctx, w)
+	updateAllTeams(ctx, w, r)
 }
 
 func convertTeamHandler(w http.ResponseWriter, r *http.Request) {

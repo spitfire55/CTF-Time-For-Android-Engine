@@ -12,9 +12,7 @@ import (
 	"io/ioutil"
 )
 
-var fb *firego.Firebase
-
-func connect(ctx context.Context) {
+func connect(ctx context.Context) *firego.Firebase {
 
 	token, err := ioutil.ReadFile("ctf-time-token.json")
 	if err != nil {
@@ -26,7 +24,7 @@ func connect(ctx context.Context) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fb = firego.New(os.Getenv("FIREBASE_BASE"), conf.Client(ctx))
+	return firego.New(os.Getenv("FIREBASE_BASE"), conf.Client(ctx))
 }
 
 func saveAllRankings(teamRankings interface{}) {
