@@ -18,13 +18,12 @@ type FirebaseContext struct {
 
 func fetch(url string, fbc *FirebaseContext) []byte {
 	resp, err := fbc.c.Get(url)
-	if err != nil {
-		//http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
+	if err != nil || resp.StatusCode != 200 {
 		return nil
 	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		//http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
+		http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
 		return nil
 	}
 	defer resp.Body.Close()
@@ -68,11 +67,10 @@ func checkCurrentRankingsHandler(w http.ResponseWriter, r *http.Request) {
 func updateAllTeamsHandler(w http.ResponseWriter, r *http.Request) {
 	FbClient, ctx := connect()
 	if FbClient != nil && ctx != nil {
-		// create pointer to FirebaseContext
 		fbc := &FirebaseContext{
 			w, *r, http.Client{}, ctx, *FbClient,
 		}
-		updateAllTeams(fbc, w, r)
+		updateAllTeams(fbc)
 	} else {
 		http.Error(w,
 			"Failed to connect to Firestore",
@@ -80,8 +78,11 @@ func updateAllTeamsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func faviconHandler(w http.ResponseWriter, r *http.Request) {}
+
 func main() {
 	http.HandleFunc("/", rootHandler)
+	http.HandleFunc("/favicon.ico", faviconHandler)
 	http.HandleFunc("/current-rankings", checkCurrentRankingsHandler)
 	//http.HandleFunc("/all-teams", allTeamsHandler)
 	http.HandleFunc("/update-new-team", updateAllTeamsHandler)

@@ -8,7 +8,6 @@ import (
 
 	"cloud.google.com/go/firestore"
 	"google.golang.org/api/option"
-	"fmt"
 )
 
 func connect() (*firestore.Client, context.Context) {
@@ -33,7 +32,6 @@ func saveCurrentRankings(teamRankings interface{}, fbc *FirebaseContext) {
 }
 
 func saveAllRankings(teamRankings KeyedRankingsAll, fbc *FirebaseContext) {
-	fmt.Println(fbc.fb)
 	rankingYears := fbc.fb.Collection("Rankings")
 	for id, ranking := range teamRankings {
 		_, err := rankingYears.Doc(id).Set(fbc.ctx, ranking)
@@ -44,32 +42,38 @@ func saveAllRankings(teamRankings KeyedRankingsAll, fbc *FirebaseContext) {
 }
 
 
+/*
 func setHighestNode(node int, fbc *FirebaseContext) {
 	_, err := fbc.fb.Doc("TeamHighestNode").Set(fbc.r.Context(), node)
 	if err != nil {
 		http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
 	}
 }
+*/
 
-func getHighestNode(fbc *FirebaseContext) interface{} {
+func getHighestNode(fbc *FirebaseContext) int64 {
 	node, err := fbc.fb.Collection("Teams").Doc("HighestID").Get(fbc.ctx)
 	if err != nil {
 		http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
-		return nil
+		return 0
 	}
-	id, err := node.DataAt("id")
+
+	var idInt int64
+	idRaw, err := node.DataAt("id")
 	if err != nil {
 		http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
-		return nil
+		return 0
 	}
-	return id
+	idInt, ok := idRaw.(int64)
+	if !ok {
+		http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
+		return 0
+	}
+	return idInt
 }
 
 
 func saveNewTeam(node int, team KeyedTeam, fbc *FirebaseContext) {
 	// nil value passed in for team if we have reached highest team ID
-	_, err := fbc.fb.Collection("Teams").Doc(strconv.Itoa(node)).Set(fbc.ctx, team)
-	if err != nil {
-		http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
-	}
+	fbc.fb.Collection("Teams").Doc(strconv.Itoa(node)).Set(fbc.ctx, team)
 }
