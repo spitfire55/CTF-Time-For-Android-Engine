@@ -10,14 +10,13 @@ import (
  * RANKINGS
  */
 type AllRankings struct {
-	Sixteen   []Rankings `json:"2016"`
-	Seventeen []Rankings `json:"2017"`
+	Sixteen   []Rankings  `json:"2016"`
+	Seventeen []Rankings  `json:"2017"`
 	Eleven    interface{} `json:"-"`
-	Twelve    []Rankings `json:"2012"`
+	Twelve    []Rankings  `json:"2012"`
 	Thirteen  interface{} `json:"-"`
 	Fourteen  interface{} `json:"-"`
-	Fifteen   []Rankings `json:"2015"`
-
+	Fifteen   []Rankings  `json:"2015"`
 }
 
 type CurrentRankings struct {
@@ -40,45 +39,46 @@ type KeyedRankingsAll map[string]KeyedRankingsYear
  */
 
 type Team struct {
-	Country string `json:"country"`
-	Academic bool `json:"academic"`
-	Id int `json:"id"`
-	Name string `json:"name"`
-	Aliases []string `json:"aliases"`
-	Ratings []RatingYear `json:"rating"`
+	Country  string       `json:"country"`
+	Academic bool         `json:"academic"`
+	Id       int          `json:"id"`
+	Name     string       `json:"name"`
+	Aliases  []string     `json:"aliases"`
+	Ratings  []RatingYear `json:"rating"`
 }
 
 type KeyedTeam struct {
-	Country string `json:"country,omitempty"`
-	Academic bool `json:"academic"`
-	Id int `json:"-"`
-	Name string `json:"name"`
-	Aliases []string `json:"aliases,omitempty"`
-	Ratings map[string]Rating `json:"rating,omitempty"`
+	Country  string            `json:"country,omitempty"`
+	Academic bool              `json:"academic"`
+	Id       int               `json:"-"`
+	Name     string            `json:"name"`
+	Aliases  []string          `json:"aliases,omitempty"`
+	Ratings  map[string]Rating `json:"rating,omitempty"`
 }
 
 type RatingYear struct {
 	Seventeen Rating `json:"2017"`
-	Sixteen Rating `json:"2016"`
-	Fifteen Rating `json:"2015"`
-	Twelve Rating `json:"2012"`
+	Sixteen   Rating `json:"2016"`
+	Fifteen   Rating `json:"2015"`
+	Twelve    Rating `json:"2012"`
 }
 
 type Rating struct {
 	OrganizerPoints float64 `json:"organizer_points"`
-	RatingPoints float64 `json:"rating_points"`
-	RatingPlace int `json:"rating_place"`
+	RatingPoints    float64 `json:"rating_points"`
+	RatingPlace     int     `json:"rating_place"`
 }
 
 // key value will be place
+/*
 type SimpleRating struct {
 	Points float64
-	Id int
+	Id     int
 }
+*/
 
-type Teams []Team
-type KeyedTeams map[string]KeyedTeam
-
+//type Teams []Team
+//type KeyedTeams map[string]KeyedTeam
 
 func getAllRankings(jsonStream []byte) KeyedRankingsAll {
 
@@ -120,7 +120,7 @@ func getCurrentRankings(jsonStream []byte) KeyedRankingsYear {
 	return keyCurrentRankings
 }
 
-
+/*
 func getAllTeams(jsonStream []byte) KeyedTeams {
 	var teams Teams
 	err := json.Unmarshal(jsonStream, &teams)
@@ -132,7 +132,7 @@ func getAllTeams(jsonStream []byte) KeyedTeams {
 	for _, team := range teams {
 		key := strconv.Itoa(team.Id)
 		var value KeyedTeam
-		value = KeyedTeam {
+		value = KeyedTeam{
 			team.Country,
 			team.Academic,
 			team.Id,
@@ -144,9 +144,9 @@ func getAllTeams(jsonStream []byte) KeyedTeams {
 	}
 	return keyTeams
 }
+*/
 
-
-func getSingleTeam(jsonStream []byte) (KeyedTeam, int) {
+func getSingleTeam(jsonStream []byte) KeyedTeam {
 	var team Team
 	err := json.Unmarshal(jsonStream, &team)
 	if err != nil {
@@ -169,7 +169,7 @@ func getSingleTeam(jsonStream []byte) (KeyedTeam, int) {
 		}
 	}
 	var value KeyedTeam
-	value = KeyedTeam {
+	value = KeyedTeam{
 		team.Country,
 		team.Academic,
 		team.Id,
@@ -177,5 +177,5 @@ func getSingleTeam(jsonStream []byte) (KeyedTeam, int) {
 		team.Aliases,
 		finalRatings,
 	}
-	return value, team.Id
+	return value
 }
