@@ -12,10 +12,10 @@ import (
 type AllRankings struct {
 	Sixteen   []Rankings  `json:"2016"`
 	Seventeen []Rankings  `json:"2017"`
-	Eleven    interface{} `json:"2011"`
+	Eleven    []Rankings  `json:"2011"`
 	Twelve    []Rankings  `json:"2012"`
-	Thirteen  interface{} `json:"-"`
-	Fourteen  interface{} `json:"-"`
+	Thirteen  []Rankings  `json:"2013"`
+	Fourteen  []Rankings  `json:"2014"`
 	Fifteen   []Rankings  `json:"2015"`
 }
 
@@ -60,6 +60,8 @@ type RatingYear struct {
 	Seventeen Rating `json:"2017"`
 	Sixteen   Rating `json:"2016"`
 	Fifteen   Rating `json:"2015"`
+	Fourteen  Rating `json:"2014"`
+	Thirteen  Rating `json:"2013"`
 	Twelve    Rating `json:"2012"`
 	Eleven	  Rating `json:"2011"`
 }
@@ -89,9 +91,9 @@ func getAllRankings(jsonStream []byte) KeyedRankingsAll {
 		log.Fatal(err)
 	}
 	// store the valid top 10 in its own slice, which is a 2-d map of rankings (rows are years, columns are Rankings structs)
-	validRankings := ValidRankings{results.Twelve, results.Fifteen, results.Sixteen, results.Seventeen}
+	validRankings := ValidRankings{results.Eleven, results.Twelve, results.Thirteen, results.Fourteen, results.Fifteen, results.Sixteen, results.Seventeen}
 	// store just the years as slice of strings.
-	validRankingsYears := []string{"2011", "2012", "2015", "2016", "2017"}
+	validRankingsYears := []string{"2011", "2012", "2013", "2014", "2015", "2016", "2017"}
 
 	// initialize an empty map that will eventually contain contents to store in Firebase. Key = year, value = KeyedRankingsYears map
 	var keyRankings = make(KeyedRankingsAll, len(validRankings))
@@ -161,6 +163,12 @@ func getSingleTeam(jsonStream []byte) KeyedTeam {
 		}
 		if team.Twelve.RatingPlace != 0 {
 			finalRatings["2012"] = team.Twelve
+		}
+		if team.Thirteen.RatingPlace != 0 {
+			finalRatings["2013"] = team.Thirteen
+		}
+		if team.Fourteen.RatingPlace != 0 {
+			finalRatings["2014"] = team.Fourteen
 		}
 		if team.Fifteen.RatingPlace != 0 {
 			finalRatings["2015"] = team.Fifteen

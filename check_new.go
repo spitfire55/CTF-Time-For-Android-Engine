@@ -5,23 +5,29 @@ import (
 	"net/http"
 	"fmt"
 	"sync"
+	"time"
 )
 
 func updateAllTeams(fbc *FirebaseContext) {
 	highestNode := int(getHighestNode(fbc))
-	fmt.Println(highestNode)
-	if highestNode != 0 {
-		increment := 0
-		interval := 100
+	if highestNode != 0 { // make sure getHighestNode didn't fail
+		increment := 0 // add 100 to each time in inner for loop
+		interval := 100 // stays at 100 or however many should be scanned in instance
 		for increment < highestNode {
 			var wg sync.WaitGroup
+			fmt.Println(increment)
 			for x := increment; (x < increment + interval) && (x < highestNode); x++ {
 				wg.Add(1)
-				go updateSingleTeam(x, &fbc.w, &fbc.r)
+				go func(x int, rw http.ResponseWriter, req http.Request) {
+					defer wg.Done()
+					updateSingleTeam(x, &rw, &req)
+				}(x, fbc.w, fbc.r)
 			}
 			wg.Wait()
-			break
+			time.Sleep(5 * time.Second)
+			increment += 100 // added value must equal value of interval
 		}
+		//TODO: Implement check_new feature here
 	} else {
 		http.Error(fbc.w,
 			"Unable to acquire highest node",
@@ -40,11 +46,8 @@ func updateSingleTeam(node int, w *http.ResponseWriter, r *http.Request) {
 		if body != nil {
 			bodyKeyed := getSingleTeam(body)
 			saveNewTeam(node, bodyKeyed, fbc)
-		} else {
-			fmt.Println("booty")
 		}
 	}
-	fmt.Println(node)
 }
 
 func checkNewTeam(node int, fbc *FirebaseContext) []byte {
