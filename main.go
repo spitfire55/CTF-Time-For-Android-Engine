@@ -30,7 +30,7 @@ func fetch(url string, fbc *FirebaseContext) []byte {
 	return body
 }
 
-func rootHandler(w http.ResponseWriter, r *http.Request) {
+func checkAllRankingsHandler(w http.ResponseWriter, r *http.Request) {
 	FbClient, ctx := connect()
 	if FbClient != nil && ctx != nil {
 		// create pointer to FirebaseContext
@@ -78,11 +78,12 @@ func updateAllTeamsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func faviconHandler(w http.ResponseWriter, r *http.Request) {}
+func defaultHandler(w http.ResponseWriter, r *http.Request) {}
 
 func main() {
-	http.HandleFunc("/", rootHandler)
-	http.HandleFunc("/favicon.ico", faviconHandler)
+	http.HandleFunc("/", defaultHandler)
+	http.HandleFunc("/favicon.ico", defaultHandler)
+	http.HandleFunc("/all-rankings", checkAllRankingsHandler)
 	http.HandleFunc("/current-rankings", checkCurrentRankingsHandler)
 	//http.HandleFunc("/all-teams", allTeamsHandler)
 	http.HandleFunc("/update-new-team", updateAllTeamsHandler)

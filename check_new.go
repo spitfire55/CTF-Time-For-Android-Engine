@@ -12,7 +12,7 @@ func updateAllTeams(fbc *FirebaseContext) {
 	highestNode := int(getHighestNode(fbc))
 	if highestNode != 0 { // make sure getHighestNode didn't fail
 		increment := 0 // add 100 to each time in inner for loop
-		interval := 20 // stays at 100 or however many should be scanned in instance
+		interval := 50 // stays at 100 or however many should be scanned in instance
 		for increment < highestNode {
 			var wg sync.WaitGroup
 			fmt.Println(increment)
@@ -24,8 +24,8 @@ func updateAllTeams(fbc *FirebaseContext) {
 				}(x, fbc.w, fbc.r)
 			}
 			wg.Wait()
-			time.Sleep(1 * time.Second)
-			increment += 20 // added value must equal value of interval
+			time.Sleep(3 * time.Second)
+			increment += 50 // added value must equal value of interval
 		}
 		//TODO: Implement check_new feature here
 	} else {
@@ -47,6 +47,8 @@ func updateSingleTeam(node int, w *http.ResponseWriter, r *http.Request) {
 			bodyKeyed := getSingleTeam(body)
 			saveNewTeam(node, bodyKeyed, fbc)
 			fbc.fb.Close()
+		} else {
+			fmt.Printf("Team id %d not found\n", node)
 		}
 	} else {
 		fmt.Printf("Failed on %d\n", node)
