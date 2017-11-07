@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
@@ -10,15 +11,19 @@ import (
 	"google.golang.org/api/option"
 )
 
-func connect() (*firestore.Client, context.Context) {
+func connect(token *option.ClientOption) (*firestore.Client, context.Context) {
 	ctx := context.Background()
-	token := option.WithCredentialsFile(os.Getenv("CTF_TIME_KEY"))
-	client, err := firestore.NewClient(ctx, os.Getenv("FIREBASE_ID"), token)
+	client, err := firestore.NewClient(ctx, os.Getenv("FIREBASE_ID"), *token)
 	if err != nil {
+		fmt.Println(err.Error())
 		return nil, nil
 	} else {
 		return client, ctx
 	}
+}
+
+func generateToken() option.ClientOption {
+	return option.WithCredentialsFile(os.Getenv("CTF_TIME_KEY"))
 }
 
 func saveCurrentRankings(teamRankings interface{}, fbc *FirebaseContext) {

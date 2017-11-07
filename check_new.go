@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"google.golang.org/api/option"
 )
 
-func updateAllTeams(fbc *FirebaseContext) {
+func updateAllTeams(fbc *FirebaseContext, token *option.ClientOption) {
 	highestNode := int(getHighestNode(fbc))
 	if highestNode != 0 { // make sure getHighestNode didn't fail
+		fbc.fb.Close()
 		increment := 0 // add 100 to each time in inner for loop
 		interval := 50 // stays at 100 or however many should be scanned in instance
 		for increment < highestNode {
@@ -19,7 +22,7 @@ func updateAllTeams(fbc *FirebaseContext) {
 				wg.Add(1)
 				go func(x int, rw http.ResponseWriter, req http.Request) {
 					defer wg.Done()
-					updateSingleTeam(x, &rw, &req)
+					updateSingleTeam(x, &rw, &req, token)
 				}(x, fbc.w, fbc.r)
 			}
 			wg.Wait()
@@ -34,8 +37,8 @@ func updateAllTeams(fbc *FirebaseContext) {
 	}
 }
 
-func updateSingleTeam(node int, w *http.ResponseWriter, r *http.Request) {
-	FbClient, ctx := connect()
+func updateSingleTeam(node int, w *http.ResponseWriter, r *http.Request, token *option.ClientOption) {
+	FbClient, ctx := connect(token)
 	if FbClient != nil && ctx != nil {
 		// create new firebase context w/ same ResponseWriter & Request
 		fbc := &FirebaseContext{
