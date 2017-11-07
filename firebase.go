@@ -11,9 +11,9 @@ import (
 	"google.golang.org/api/option"
 )
 
-func connect(token *option.ClientOption) (*firestore.Client, context.Context) {
+func connect(token option.ClientOption) (*firestore.Client, context.Context) {
 	ctx := context.Background()
-	client, err := firestore.NewClient(ctx, os.Getenv("FIREBASE_ID"), *token)
+	client, err := firestore.NewClient(ctx, os.Getenv("FIREBASE_ID"), token)
 	if err != nil {
 		fmt.Println(err.Error())
 		return nil, nil

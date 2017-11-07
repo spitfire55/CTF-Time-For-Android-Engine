@@ -10,7 +10,7 @@ import (
 	"google.golang.org/api/option"
 )
 
-func updateAllTeams(fbc *FirebaseContext, token *option.ClientOption) {
+func updateAllTeams(fbc *FirebaseContext, token option.ClientOption) {
 	highestNode := int(getHighestNode(fbc))
 	if highestNode != 0 { // make sure getHighestNode didn't fail
 		fbc.fb.Close()
@@ -37,7 +37,7 @@ func updateAllTeams(fbc *FirebaseContext, token *option.ClientOption) {
 	}
 }
 
-func updateSingleTeam(node int, w *http.ResponseWriter, r *http.Request, token *option.ClientOption) {
+func updateSingleTeam(node int, w *http.ResponseWriter, r *http.Request, token option.ClientOption) {
 	FbClient, ctx := connect(token)
 	if FbClient != nil && ctx != nil {
 		// create new firebase context w/ same ResponseWriter & Request
@@ -48,8 +48,8 @@ func updateSingleTeam(node int, w *http.ResponseWriter, r *http.Request, token *
 		if body != nil {
 			bodyKeyed := getSingleTeam(body)
 			saveNewTeam(node, bodyKeyed, fbc)
-			fbc.fb.Close()
 		}
+		fbc.fb.Close()
 	} else {
 		fmt.Printf("Failed on %d\n", node)
 	}

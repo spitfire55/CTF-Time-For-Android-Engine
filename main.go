@@ -32,7 +32,7 @@ func fetch(url string, fbc *FirebaseContext) []byte {
 
 func checkAllRankingsHandler(w http.ResponseWriter, r *http.Request) {
 	token := generateToken()
-	FbClient, ctx := connect(&token)
+	FbClient, ctx := connect(token)
 	if FbClient != nil && ctx != nil {
 		// create pointer to FirebaseContext
 		fbc := &FirebaseContext{
@@ -51,7 +51,7 @@ func checkAllRankingsHandler(w http.ResponseWriter, r *http.Request) {
 
 func checkCurrentRankingsHandler(w http.ResponseWriter, r *http.Request) {
 	token := generateToken()
-	FbClient, ctx := connect(&token)
+	FbClient, ctx := connect(token)
 	if FbClient != nil && ctx != nil {
 		fbc := &FirebaseContext{
 			w, *r, http.Client{}, ctx, *FbClient,
@@ -68,12 +68,12 @@ func checkCurrentRankingsHandler(w http.ResponseWriter, r *http.Request) {
 
 func updateAllTeamsHandler(w http.ResponseWriter, r *http.Request) {
 	token := generateToken()
-	FbClient, ctx := connect(&token)
+	FbClient, ctx := connect(token)
 	if FbClient != nil && ctx != nil {
 		fbc := &FirebaseContext{
 			w, *r, http.Client{}, ctx, *FbClient,
 		}
-		updateAllTeams(fbc, &token)
+		updateAllTeams(fbc, token)
 	} else {
 		http.Error(w,
 			"Failed to connect to Firestore",
