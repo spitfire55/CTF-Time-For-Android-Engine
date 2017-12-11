@@ -86,6 +86,6 @@ func main() {
 	http.HandleFunc("/all-rankings", checkAllRankingsHandler)
 	http.HandleFunc("/current-rankings", checkCurrentRankingsHandler)
 	//http.HandleFunc("/all-teams", allTeamsHandler)
-	http.HandleFunc("/update-new-team", updateAllTeamsHandler)
+	http.HandleFunc("/update-teams", updateAllTeamsHandler)
 	http.ListenAndServe("localhost:8080", nil)
 }
