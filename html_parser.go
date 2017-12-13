@@ -2,37 +2,27 @@ package main
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"strconv"
+
+	"golang.org/x/net/html"
+	"log"
+	"net/http"
 )
 
 /*
  * RANKINGS
  */
-type AllRankings struct {
-	Sixteen   []Rankings  `json:"2016"`
-	Seventeen []Rankings  `json:"2017"`
-	Eleven    []Rankings  `json:"2011"`
-	Twelve    []Rankings  `json:"2012"`
-	Thirteen  []Rankings  `json:"2013"`
-	Fourteen  []Rankings  `json:"2014"`
-	Fifteen   []Rankings  `json:"2015"`
+
+type Ranking struct {
+	Rank        int
+	TeamName    string
+	TeamUrl     string
+	CountryFlag string
+	CountryID   string
+	Score       float64
+	Events      int
 }
-
-type CurrentRankings struct {
-	Rankings []Rankings `json:"2017"`
-}
-
-type Rankings struct {
-	TeamName string  `json:"team_name,omitempty"`
-	Points   float64 `json:"points,omitempty"`
-	Id       int     `json:"team_id,omitempty"`
-}
-
-type ValidRankings [][]Rankings
-
-type KeyedRankingsYear map[string]Rankings
-type KeyedRankingsAll map[string]KeyedRankingsYear
 
 /*
  * TEAMS
@@ -63,7 +53,7 @@ type RatingYear struct {
 	Fourteen  Rating `json:"2014"`
 	Thirteen  Rating `json:"2013"`
 	Twelve    Rating `json:"2012"`
-	Eleven	  Rating `json:"2011"`
+	Eleven    Rating `json:"2011"`
 }
 
 type Rating struct {
@@ -83,10 +73,10 @@ type SimpleRating struct {
 //type Teams []Team
 //type KeyedTeams map[string]KeyedTeam
 
-func getAllRankings(jsonStream []byte) KeyedRankingsAll {
+/*func getAllRankings(htmlStream []byte) KeyedRankingsAll {
 
 	var results AllRankings
-	err := json.Unmarshal(jsonStream, &results)
+	err := json.Unmarshal(htmlStream, &results)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -108,25 +98,61 @@ func getAllRankings(jsonStream []byte) KeyedRankingsAll {
 	}
 	return keyRankings
 }
+*/
 
-func getCurrentRankings(jsonStream []byte) KeyedRankingsYear {
-	var results CurrentRankings
-	err := json.Unmarshal(jsonStream, &results)
-	if err != nil {
-		log.Fatal(err)
+func getCurrentRankings(response *http.Response, fbc FirebaseContext) {
+	//var results CurrentRankings
+	z := html.NewTokenizer(response.Body)
+	firstRow := true
+	for {
+		tk := z.Next()
+		switch {
+		case tk == html.ErrorToken:
+			break
+		case tk == html.StartTagToken:
+			if string(z.Raw()) == "<tr>" {
+				if firstRow {
+					firstRow = false
+					break
+				}
+				z.Next()
+				rowLength := 0
+				var ranking Ranking
+				var rankingRow []html.Token
+				for string(z.Raw()) != "</tr>" {
+					rankingRow = append(rankingRow, z.Token())
+					rowLength++
+					z.Next()
+				}
+				ranking.Rank, _ = strconv.Atoi(rankingRow[1].Data)
+				ranking.TeamUrl = rankingRow[4].Attr[0].Val
+				ranking.TeamName = rankingRow[5].Data
+				if rowLength == 17 {
+					ranking.CountryFlag = rankingRow[9].Attr[0].Val
+					ranking.CountryID = rankingRow[9].Attr[1].Val
+					ranking.Score, _ = strconv.ParseFloat(rankingRow[12].Data, 64)
+					ranking.Events, _ = strconv.Atoi(rankingRow[15].Data)
+				} else {
+					ranking.Score, _ = strconv.ParseFloat(rankingRow[11].Data, 64)
+					ranking.Events, _ = strconv.Atoi(rankingRow[14].Data)
+				}
+				fmt.Println(ranking)
+			}
+		}
 	}
-
-	var keyCurrentRankings = make(map[string]Rankings, len(results.Rankings))
-	for i, ranking := range results.Rankings {
-		keyCurrentRankings[strconv.Itoa(i)] = ranking
-	}
-	return keyCurrentRankings
+	/*
+		var keyCurrentRankings = make(map[string]Rankings, len(results.Rankings))
+		for i, ranking := range results.Rankings {
+			keyCurrentRankings[strconv.Itoa(i)] = ranking
+		}
+		return keyCurrentRankings
+	*/
 }
 
 /*
-func getAllTeams(jsonStream []byte) KeyedTeams {
+func getAllTeams(htmlStream []byte) KeyedTeams {
 	var teams Teams
-	err := json.Unmarshal(jsonStream, &teams)
+	err := json.Unmarshal(htmlStream, &teams)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -149,9 +175,9 @@ func getAllTeams(jsonStream []byte) KeyedTeams {
 }
 */
 
-func getSingleTeam(jsonStream []byte) KeyedTeam {
+func getSingleTeam(htmlStream []byte) KeyedTeam {
 	var team Team
-	err := json.Unmarshal(jsonStream, &team)
+	err := json.Unmarshal(htmlStream, &team)
 	if err != nil {
 		log.Fatal(err)
 	}

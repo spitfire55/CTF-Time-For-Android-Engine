@@ -1,16 +1,7 @@
 package main
 
-import (
-	"strconv"
-	"net/http"
-	"fmt"
-	"sync"
-	"time"
 
-	"google.golang.org/api/option"
-)
-
-func updateAllTeams(fbc *FirebaseContext, token option.ClientOption) {
+/*func updateAllTeams(fbc *FirebaseContext, token option.ClientOption) {
 	highestNode := int(getHighestNode(fbc))
 	if highestNode != 0 { // make sure getHighestNode didn't fail
 		fbc.fb.Close()
@@ -18,7 +9,7 @@ func updateAllTeams(fbc *FirebaseContext, token option.ClientOption) {
 		interval := 50 // stays at 100 or however many should be scanned in instance
 		for increment < highestNode {
 			var wg sync.WaitGroup
-			for x := increment; (x < increment + interval) && (x < highestNode); x++ {
+			for x := increment; (x < increment+interval) && (x < highestNode); x++ {
 				wg.Add(1)
 				go func(x int, rw http.ResponseWriter, req http.Request) {
 					defer wg.Done()
@@ -34,11 +25,12 @@ func updateAllTeams(fbc *FirebaseContext, token option.ClientOption) {
 	} else {
 		http.Error(fbc.w,
 			"Unable to acquire highest node",
-				http.StatusInternalServerError)
+			http.StatusInternalServerError)
 	}
 }
+*/
 
-func updateSingleTeam(node int, w *http.ResponseWriter, r *http.Request, token option.ClientOption) {
+/*func updateSingleTeam(node int, w *http.ResponseWriter, r *http.Request, token option.ClientOption) {
 	FbClient, ctx := connect(token)
 	if FbClient != nil && ctx != nil {
 		// create new firebase context w/ same ResponseWriter & Request
@@ -51,12 +43,15 @@ func updateSingleTeam(node int, w *http.ResponseWriter, r *http.Request, token o
 			saveNewTeam(node, bodyKeyed, fbc)
 		}
 		fbc.fb.Close()
+
 	} else {
 		fmt.Printf("Failed on %d\n", node)
 	}
 }
 
-func checkNewTeam(node int, fbc *FirebaseContext) []byte {
+
+func checkNewTeam(node int, fbc *FirebaseContext) *http.Response {
 	baseUrl := "https://ctftime.org/api/v1/teams/"
 	return fetch(baseUrl+strconv.Itoa(node)+"/", fbc)
 }
+*/

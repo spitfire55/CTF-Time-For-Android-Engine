@@ -26,7 +26,7 @@ func generateToken() option.ClientOption {
 	return option.WithCredentialsFile(os.Getenv("CTF_TIME_KEY"))
 }
 
-func saveCurrentRankings(teamRankings interface{}, fbc *FirebaseContext) {
+/*func saveCurrentRankings(teamRankings interface{}, fbc *FirebaseContext) {
 	currentRankings, ok := teamRankings.(KeyedRankingsYear)
 	if ok {
 		_, err := fbc.fb.Collection("Rankings").Doc("2017").Set(fbc.ctx, currentRankings)
@@ -47,7 +47,6 @@ func saveAllRankings(teamRankings KeyedRankingsAll, fbc *FirebaseContext) {
 }
 
 
-/*
 func setHighestNode(node int, fbc *FirebaseContext) {
 	_, err := fbc.fb.Doc("TeamHighestNode").Set(fbc.r.Context(), node)
 	if err != nil {
@@ -76,7 +75,6 @@ func getHighestNode(fbc *FirebaseContext) int64 {
 	}
 	return idInt
 }
-
 
 func saveNewTeam(node int, team KeyedTeam, fbc *FirebaseContext) {
 	// nil value passed in for team if we have reached highest team ID
