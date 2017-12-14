@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"cloud.google.com/go/firestore"
 	"google.golang.org/api/option"
@@ -13,7 +14,7 @@ import (
 
 func connect(token option.ClientOption) (*firestore.Client, context.Context) {
 	ctx := context.Background()
-	client, err := firestore.NewClient(ctx, os.Getenv("FIREBASE_ID"), token)
+	client, err := firestore.NewClient(ctx, "ctf-time-for-android", token)
 	if err != nil {
 		fmt.Println(err.Error())
 		return nil, nil
@@ -26,59 +27,44 @@ func generateToken() option.ClientOption {
 	return option.WithCredentialsFile(os.Getenv("CTF_TIME_KEY"))
 }
 
-func saveCurrentRankings(teamRankings interface{}, fbc *FirebaseContext) {
-	currentRankings, ok := teamRankings.(KeyedRankingsYear)
-	if ok {
-		_, err := fbc.fb.Collection("Rankings").Doc("2017").Set(fbc.ctx, currentRankings)
+func storeRankings(rankings []Ranking, fbc FirebaseContext) {
+	for _, ranking := range rankings {
+		_, err := fbc.fb.Collection("2017_Rankings").Doc(strconv.Itoa(ranking.Rank)).Set(fbc.ctx, ranking)
 		if err != nil {
+			fmt.Println(err.Error())
 			http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
 		}
 	}
 }
 
-func saveAllRankings(teamRankings KeyedRankingsAll, fbc *FirebaseContext) {
-	rankingYears := fbc.fb.Collection("Rankings")
-	for id, ranking := range teamRankings {
-		_, err := rankingYears.Doc(id).Set(fbc.ctx, ranking)
-		if err != nil {
-			http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
+func storeRankingsHash(hash string, pageNumDoc string, fbc FirebaseContext) {
+	fmt.Println("New doc at ", pageNumDoc)
+	fmt.Println(hash)
+	_, err := fbc.fb.Collection("2017_Rankings").Doc(pageNumDoc).Set(fbc.ctx, map[string]string{
+		"hash": hash,
+	})
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+}
+
+func hashDiff(resultsHash string, pageNumber int, fbc FirebaseContext) (bool, error) {
+	pageNumDoc := fmt.Sprintf("Page%dHash", pageNumber)
+	hashDoc, err := fbc.fb.Collection("2017_Rankings").Doc(pageNumDoc).Get(fbc.ctx)
+	if err != nil {
+		if strings.Contains(err.Error(), "NotFound") { // document doesn't exist, create it
+			return true, err
 		}
+		return false, err
 	}
-}
-
-
-/*
-func setHighestNode(node int, fbc *FirebaseContext) {
-	_, err := fbc.fb.Doc("TeamHighestNode").Set(fbc.r.Context(), node)
+	hashDocValue, err := hashDoc.DataAt("hash")
 	if err != nil {
-		http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
+		return false, err
 	}
-}
-*/
-
-func getHighestNode(fbc *FirebaseContext) int64 {
-	node, err := fbc.fb.Collection("Teams").Doc("HighestID").Get(fbc.ctx)
-	if err != nil {
-		http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
-		return 0
+	if resultsHash != hashDocValue {
+		fmt.Println(hashDocValue)
+		return true, nil
+	} else {
+		return false, nil
 	}
-
-	var idInt int64
-	idRaw, err := node.DataAt("id")
-	if err != nil {
-		http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
-		return 0
-	}
-	idInt, ok := idRaw.(int64)
-	if !ok {
-		http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
-		return 0
-	}
-	return idInt
-}
-
-
-func saveNewTeam(node int, team KeyedTeam, fbc *FirebaseContext) {
-	// nil value passed in for team if we have reached highest team ID
-	fbc.fb.Collection("Teams").Doc(strconv.Itoa(node)).Set(fbc.ctx, team)
 }
