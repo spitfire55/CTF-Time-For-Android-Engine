@@ -1,12 +1,13 @@
 package main
 
 import (
-	"encoding/json"
+	"crypto/sha256"
+	"encoding/base64"
+	"errors"
 	"fmt"
 	"strconv"
 
 	"golang.org/x/net/html"
-	"log"
 	"net/http"
 )
 
@@ -24,91 +25,15 @@ type Ranking struct {
 	Events      int
 }
 
-/*
- * TEAMS
- */
-
-type Team struct {
-	Country  string       `json:"country"`
-	Academic bool         `json:"academic"`
-	Id       int          `json:"id"`
-	Name     string       `json:"name"`
-	Aliases  []string     `json:"aliases"`
-	Ratings  []RatingYear `json:"rating"`
-}
-
-type KeyedTeam struct {
-	Country  string            `json:"country,omitempty"`
-	Academic bool              `json:"academic"`
-	Id       int               `json:"-"`
-	Name     string            `json:"name"`
-	Aliases  []string          `json:"aliases,omitempty"`
-	Ratings  map[string]Rating `json:"rating,omitempty"`
-}
-
-type RatingYear struct {
-	Seventeen Rating `json:"2017"`
-	Sixteen   Rating `json:"2016"`
-	Fifteen   Rating `json:"2015"`
-	Fourteen  Rating `json:"2014"`
-	Thirteen  Rating `json:"2013"`
-	Twelve    Rating `json:"2012"`
-	Eleven    Rating `json:"2011"`
-}
-
-type Rating struct {
-	OrganizerPoints float64 `json:"organizer_points"`
-	RatingPoints    float64 `json:"rating_points"`
-	RatingPlace     int     `json:"rating_place"`
-}
-
-// key value will be place
-/*
-type SimpleRating struct {
-	Points float64
-	Id     int
-}
-*/
-
-//type Teams []Team
-//type KeyedTeams map[string]KeyedTeam
-
-/*func getAllRankings(htmlStream []byte) KeyedRankingsAll {
-
-	var results AllRankings
-	err := json.Unmarshal(htmlStream, &results)
-	if err != nil {
-		log.Fatal(err)
-	}
-	// store the valid top 10 in its own slice, which is a 2-d map of rankings (rows are years, columns are Rankings structs)
-	validRankings := ValidRankings{results.Eleven, results.Twelve, results.Thirteen, results.Fourteen, results.Fifteen, results.Sixteen, results.Seventeen}
-	// store just the years as slice of strings.
-	validRankingsYears := []string{"2011", "2012", "2013", "2014", "2015", "2016", "2017"}
-
-	// initialize an empty map that will eventually contain contents to store in Firebase. Key = year, value = KeyedRankingsYears map
-	var keyRankings = make(KeyedRankingsAll, len(validRankings))
-	for i, yearRankings := range validRankings {
-		// initialize inner map. Key = team id, value = KeyedRankingValue interface
-		keyRankings[validRankingsYears[i]] = make(map[string]Rankings, len(validRankings[i]))
-		for j, ranking := range yearRankings {
-			// indices of validRankingsYears align to the order in which validRankings are stored and thus, contains the correct
-			// year to use as a key value for the outer maps. 0 = 2012, 1 = 2015, etc.
-			keyRankings[validRankingsYears[i]][strconv.Itoa(j)] = ranking
-		}
-	}
-	return keyRankings
-}
-*/
-
-func getCurrentRankings(response *http.Response, fbc FirebaseContext) {
-	//var results CurrentRankings
+func parseAndStoreRankings(response *http.Response, pageNumber int, fbc FirebaseContext) error {
+	var rankings []Ranking
 	z := html.NewTokenizer(response.Body)
 	firstRow := true
 	for {
 		tk := z.Next()
 		switch {
-		case tk == html.ErrorToken:
-			break
+		case tk == html.ErrorToken: // reached end of HTML file
+			goto finish
 		case tk == html.StartTagToken:
 			if string(z.Raw()) == "<tr>" {
 				if firstRow {
@@ -136,84 +61,25 @@ func getCurrentRankings(response *http.Response, fbc FirebaseContext) {
 					ranking.Score, _ = strconv.ParseFloat(rankingRow[11].Data, 64)
 					ranking.Events, _ = strconv.Atoi(rankingRow[14].Data)
 				}
-				fmt.Println(ranking)
+				rankings = append(rankings, ranking)
 			}
 		}
 	}
-	/*
-		var keyCurrentRankings = make(map[string]Rankings, len(results.Rankings))
-		for i, ranking := range results.Rankings {
-			keyCurrentRankings[strconv.Itoa(i)] = ranking
+finish:
+	if len(rankings) > 0 {
+		sha256Hash := sha256.New()
+		sha256Hash.Write([]byte(fmt.Sprintf("%#v", rankings)))
+		resultsHash := base64.StdEncoding.EncodeToString(sha256Hash.Sum(nil))
+		hashDiff, err := hashDiff(resultsHash, pageNumber, fbc)
+		if err != nil && !hashDiff {
+			return err
 		}
-		return keyCurrentRankings
-	*/
-}
-
-/*
-func getAllTeams(htmlStream []byte) KeyedTeams {
-	var teams Teams
-	err := json.Unmarshal(htmlStream, &teams)
-	if err != nil {
-		log.Fatal(err)
+		pageNumDoc := fmt.Sprintf("Page%dHash", pageNumber)
+		if hashDiff {
+			storeRankingsHash(resultsHash, pageNumDoc, fbc)
+			storeRankings(rankings, fbc)
+		}
+		return nil
 	}
-
-	keyTeams := make(map[string]KeyedTeam)
-	for _, team := range teams {
-		key := strconv.Itoa(team.Id)
-		var value KeyedTeam
-		value = KeyedTeam{
-			team.Country,
-			team.Academic,
-			team.Id,
-			team.Name,
-			team.Aliases,
-			nil,
-		}
-		keyTeams[key] = value
-	}
-	return keyTeams
-}
-*/
-
-func getSingleTeam(htmlStream []byte) KeyedTeam {
-	var team Team
-	err := json.Unmarshal(htmlStream, &team)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	finalRatings := make(map[string]Rating)
-	for _, team := range team.Ratings {
-		if team.Eleven.RatingPlace != 0 {
-			finalRatings["2011"] = team.Eleven
-		}
-		if team.Twelve.RatingPlace != 0 {
-			finalRatings["2012"] = team.Twelve
-		}
-		if team.Thirteen.RatingPlace != 0 {
-			finalRatings["2013"] = team.Thirteen
-		}
-		if team.Fourteen.RatingPlace != 0 {
-			finalRatings["2014"] = team.Fourteen
-		}
-		if team.Fifteen.RatingPlace != 0 {
-			finalRatings["2015"] = team.Fifteen
-		}
-		if team.Sixteen.RatingPlace != 0 {
-			finalRatings["2016"] = team.Sixteen
-		}
-		if team.Seventeen.RatingPlace != 0 {
-			finalRatings["2017"] = team.Seventeen
-		}
-	}
-	var value KeyedTeam
-	value = KeyedTeam{
-		team.Country,
-		team.Academic,
-		team.Id,
-		team.Name,
-		team.Aliases,
-		finalRatings,
-	}
-	return value
+	return errors.New("length of rankings array is zero")
 }
