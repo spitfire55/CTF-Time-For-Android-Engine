@@ -22,10 +22,9 @@ type Ranking struct {
 	CountryFlag string
 	CountryID   string
 	Score       float64
-	Events      int
 }
 
-func parseAndStoreRankings(response *http.Response, pageNumber int, fbc FirebaseContext) error {
+func parseAndStoreRankings(response *http.Response, year int, pageNumber int, fbc FirebaseContext) error {
 	var rankings []Ranking
 	z := html.NewTokenizer(response.Body)
 	firstRow := true
@@ -49,18 +48,20 @@ func parseAndStoreRankings(response *http.Response, pageNumber int, fbc Firebase
 					rowLength++
 					z.Next()
 				}
+				fmt.Printf("%#v\n", rankingRow)
 				ranking.Rank, _ = strconv.Atoi(rankingRow[1].Data)
 				ranking.TeamUrl = rankingRow[4].Attr[0].Val
 				ranking.TeamName = rankingRow[5].Data
-				if rowLength == 17 {
+				if rowLength == 17 { // 2017 w/ flag
 					ranking.CountryFlag = rankingRow[9].Attr[0].Val
 					ranking.CountryID = rankingRow[9].Attr[1].Val
 					ranking.Score, _ = strconv.ParseFloat(rankingRow[12].Data, 64)
-					ranking.Events, _ = strconv.Atoi(rankingRow[15].Data)
-				} else {
+				} else if year == 16 { // 2017 w/o flag
 					ranking.Score, _ = strconv.ParseFloat(rankingRow[11].Data, 64)
-					ranking.Events, _ = strconv.Atoi(rankingRow[14].Data)
+				} else if rowLength == 15 { // < 2017 w/ flag
+					ranking.CountryFlag = rankingRow[9].Attr[]
 				}
+				fmt.Printf("%#v\n", ranking)
 				rankings = append(rankings, ranking)
 			}
 		}
@@ -70,14 +71,14 @@ finish:
 		sha256Hash := sha256.New()
 		sha256Hash.Write([]byte(fmt.Sprintf("%#v", rankings)))
 		resultsHash := base64.StdEncoding.EncodeToString(sha256Hash.Sum(nil))
-		hashDiff, err := hashDiff(resultsHash, pageNumber, fbc)
+		hashDiff, err := hashDiff(resultsHash, pageNumber, year, fbc)
 		if err != nil && !hashDiff {
 			return err
 		}
 		pageNumDoc := fmt.Sprintf("Page%dHash", pageNumber)
 		if hashDiff {
-			storeRankingsHash(resultsHash, pageNumDoc, fbc)
-			storeRankings(rankings, fbc)
+			storeRankingsHash(resultsHash, pageNumDoc, year, fbc)
+			storeRankings(rankings, year, fbc)
 		}
 		return nil
 	}
