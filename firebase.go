@@ -27,9 +27,31 @@ func generateToken() option.ClientOption {
 	return option.WithCredentialsFile(os.Getenv("CTF_TIME_KEY"))
 }
 
-func storeRankings(rankings []Ranking, fbc FirebaseContext) {
+func getLastPageNumber(fbc FirebaseContext, year string) int {
+	collectionString := fmt.Sprintf("%s_Rankings", year)
+	lastPageNumberDoc, _ := fbc.fb.Collection(collectionString).Doc("LastPageNumber").Get(fbc.ctx)
+	lastPageNumber, _ := lastPageNumberDoc.DataAt("lastPageNumber")
+	if lastPageNumberInt, ok := lastPageNumber.(int64); ok {
+		return int(lastPageNumberInt)
+	} else {
+		return 0
+	}
+}
+
+func updateLastPageNumber(fbc FirebaseContext, year string, newPageNumber int) {
+	collectionString := fmt.Sprintf("%s_Rankings", year)
+	_, err := fbc.fb.Collection(collectionString).Doc("LastPageNumber").Set(fbc.ctx, map[string]int{
+		"lastPageNumber": newPageNumber,
+	})
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+}
+
+func storeRankings(rankings []Ranking, year string, fbc FirebaseContext) {
+	collectionString := fmt.Sprintf("%s_Rankings", year)
 	for _, ranking := range rankings {
-		_, err := fbc.fb.Collection("2017_Rankings").Doc(strconv.Itoa(ranking.Rank)).Set(fbc.ctx, ranking)
+		_, err := fbc.fb.Collection(collectionString).Doc(strconv.Itoa(ranking.Rank)).Set(fbc.ctx, ranking)
 		if err != nil {
 			fmt.Println(err.Error())
 			http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
@@ -37,10 +59,9 @@ func storeRankings(rankings []Ranking, fbc FirebaseContext) {
 	}
 }
 
-func storeRankingsHash(hash string, pageNumDoc string, fbc FirebaseContext) {
-	fmt.Println("New doc at ", pageNumDoc)
-	fmt.Println(hash)
-	_, err := fbc.fb.Collection("2017_Rankings").Doc(pageNumDoc).Set(fbc.ctx, map[string]string{
+func storeRankingsHash(hash string, pageNumDoc string, year string, fbc FirebaseContext) {
+	collectionString := fmt.Sprintf("%s_Rankings", year)
+	_, err := fbc.fb.Collection(collectionString).Doc(pageNumDoc).Set(fbc.ctx, map[string]string{
 		"hash": hash,
 	})
 	if err != nil {
@@ -48,9 +69,10 @@ func storeRankingsHash(hash string, pageNumDoc string, fbc FirebaseContext) {
 	}
 }
 
-func hashDiff(resultsHash string, pageNumber int, fbc FirebaseContext) (bool, error) {
+func hashDiff(resultsHash string, pageNumber int, year string, fbc FirebaseContext) (bool, error) {
 	pageNumDoc := fmt.Sprintf("Page%dHash", pageNumber)
-	hashDoc, err := fbc.fb.Collection("2017_Rankings").Doc(pageNumDoc).Get(fbc.ctx)
+	collectionString := fmt.Sprintf("%s_Rankings", year)
+	hashDoc, err := fbc.fb.Collection(collectionString).Doc(pageNumDoc).Get(fbc.ctx)
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") { // document doesn't exist, create it
 			return true, err

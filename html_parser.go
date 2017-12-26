@@ -25,7 +25,7 @@ type Ranking struct {
 	Events      int
 }
 
-func parseAndStoreRankings(response *http.Response, pageNumber int, fbc FirebaseContext) error {
+func parseAndStoreRankings(response *http.Response, pageNumber int, year string, fbc FirebaseContext) error {
 	var rankings []Ranking
 	z := html.NewTokenizer(response.Body)
 	firstRow := true
@@ -70,14 +70,14 @@ finish:
 		sha256Hash := sha256.New()
 		sha256Hash.Write([]byte(fmt.Sprintf("%#v", rankings)))
 		resultsHash := base64.StdEncoding.EncodeToString(sha256Hash.Sum(nil))
-		hashDiff, err := hashDiff(resultsHash, pageNumber, fbc)
+		hashDiff, err := hashDiff(resultsHash, pageNumber, year, fbc)
 		if err != nil && !hashDiff {
 			return err
 		}
 		pageNumDoc := fmt.Sprintf("Page%dHash", pageNumber)
 		if hashDiff {
-			storeRankingsHash(resultsHash, pageNumDoc, fbc)
-			storeRankings(rankings, fbc)
+			storeRankingsHash(resultsHash, pageNumDoc, year, fbc)
+			storeRankings(rankings, year, fbc)
 		}
 		return nil
 	}
