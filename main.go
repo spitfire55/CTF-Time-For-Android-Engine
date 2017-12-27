@@ -7,6 +7,8 @@ import (
 	"cloud.google.com/go/firestore"
 	"fmt"
 	"strconv"
+	"google.golang.org/appengine"
+	"sync"
 )
 
 type FirebaseContext struct {
@@ -20,67 +22,93 @@ type FirebaseContext struct {
 func fetch(url string, fbc FirebaseContext) *http.Response {
 	resp, err := fbc.c.Get(url)
 	if err != nil {
-		http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
+		fmt.Println(err)
 		return nil
 	}
 	if resp.StatusCode != 200 {
 		return nil
 	}
-	fmt.Println(url + resp.Status)
 	return resp
 }
 
 func updateCurrentRankingsHandler(w http.ResponseWriter, r *http.Request) {
 	token := generateToken()
-	FbClient, ctx := connect(token)
-	if FbClient != nil && ctx != nil {
+	year := r.URL.Query().Get("year")
+	FbClient := connect(token, r)
+	var highestNode int
+	if FbClient != nil {
 		fbc := FirebaseContext{
-			w, *r, http.Client{}, ctx, *FbClient,
+			w, *r, http.Client{}, appengine.NewContext(r), *FbClient,
 		}
-		year := r.URL.Query().Get("year")
-		highestNode := getLastPageNumber(fbc, year)
-		success := true
-		for i := 1; i < highestNode; i++ {
-			go func(i int) {
-				fmt.Println("Working on " + strconv.Itoa(i))
-				rankingsUrl := fmt.Sprintf("https://ctftime.org/stats/%s?page=%d", year, i)
-				response := fetch(rankingsUrl, fbc)
-				if response != nil {
-					err := parseAndStoreRankings(response, i, year, fbc)
-					if err != nil {
-						fmt.Println(err)
+		highestNode = getLastPageNumber(fbc, year)
+		fbc.fb.Close()
+	} else {
+		highestNode = 0
+	}
+	success := true
+	for i := 1; i < highestNode; i += 10 {
+		var wg sync.WaitGroup
+		wg.Add(10)
+		for j := i; j < i + 10 && j < highestNode; j++ {
+			go func(j int) {
+				defer wg.Done()
+				FbClient := connect(token, r)
+				if FbClient != nil {
+					fbc := FirebaseContext{
+						w, *r, http.Client{}, appengine.NewContext(r), *FbClient,
 					}
+					rankingsUrl := fmt.Sprintf("https://ctftime.org/stats/%s?page=%d", year, j)
+					response := fetch(rankingsUrl, fbc)
+					if response != nil {
+						err := parseAndStoreRankings(response, j, year, fbc)
+						if err != nil {
+							fmt.Println(err)
+						}
+					}
+					fbc.fb.Close()
+					fbc.ctx.Done()
+					fmt.Println(strconv.Itoa(j) + " is complete")
+				} else {
+					http.Error(w,
+						"Failed to connect to Firestore",
+						http.StatusInternalServerError)
 				}
-				return
-			}(i)
+			}(j)
 		}
-		for success {
+		wg.Wait()
+	}
+	for success {
+		FbClient := connect(token, r)
+		if FbClient != nil {
+			fbc := FirebaseContext{
+				w, *r, http.Client{}, appengine.NewContext(r), *FbClient,
+			}
 			rankingsUrl := fmt.Sprintf("https://ctftime.org/stats/%s?page=%d", year, highestNode)
 			response := fetch(rankingsUrl, fbc)
 			if response != nil {
-				fmt.Println(response.Body)
 				err := parseAndStoreRankings(response, highestNode, year, fbc)
 				if err != nil {
-					http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
+					fmt.Println(err)
 				}
 				highestNode++
 			} else {
 				success = false
 				updateLastPageNumber(fbc, year, highestNode)
 			}
-		}
-	} else {
-		http.Error(w,
+			fbc.fb.Close()
+		} else {
+			http.Error(w,
 			"Failed to connect to Firestore",
 			http.StatusInternalServerError)
+		}
 	}
 	w.Write([]byte("Finished loading contents"))
 }
 
-func defaultHandler(w http.ResponseWriter, r *http.Request) {}
+func defaultHandler(_ http.ResponseWriter, _ *http.Request) {}
 
 func main() {
-	http.HandleFunc("/favicon.ico", defaultHandler)
-	http.HandleFunc("/", updateCurrentRankingsHandler)
+	http.HandleFunc("/rankings", updateCurrentRankingsHandler)
+	http.HandleFunc("/", defaultHandler)
 	http.ListenAndServe("localhost:8080", nil)
 }

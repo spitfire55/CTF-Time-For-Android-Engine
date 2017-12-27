@@ -22,7 +22,6 @@ type Ranking struct {
 	CountryFlag string
 	CountryID   string
 	Score       float64
-	Events      int
 }
 
 func parseAndStoreRankings(response *http.Response, pageNumber int, year string, fbc FirebaseContext) error {
@@ -52,14 +51,18 @@ func parseAndStoreRankings(response *http.Response, pageNumber int, year string,
 				ranking.Rank, _ = strconv.Atoi(rankingRow[1].Data)
 				ranking.TeamUrl = rankingRow[4].Attr[0].Val
 				ranking.TeamName = rankingRow[5].Data
-				if rowLength == 17 {
+				if rowLength == 17 { // 2017 w/ flag
 					ranking.CountryFlag = rankingRow[9].Attr[0].Val
 					ranking.CountryID = rankingRow[9].Attr[1].Val
 					ranking.Score, _ = strconv.ParseFloat(rankingRow[12].Data, 64)
-					ranking.Events, _ = strconv.Atoi(rankingRow[15].Data)
-				} else {
+				} else if rowLength == 16 { // 2017 w/o flag
 					ranking.Score, _ = strconv.ParseFloat(rankingRow[11].Data, 64)
-					ranking.Events, _ = strconv.Atoi(rankingRow[14].Data)
+				} else if rowLength == 14 { // < 2017 w/ flag
+					ranking.CountryFlag = rankingRow[9].Attr[0].Val
+					ranking.CountryID = rankingRow[9].Attr[1].Val
+					ranking.Score, _ = strconv.ParseFloat(rankingRow[12].Data, 64)
+				} else { // < 2017 w/o flag (row length = 13)
+					ranking.Score, _ = strconv.ParseFloat(rankingRow[11].Data, 64)
 				}
 				rankings = append(rankings, ranking)
 			}
@@ -75,10 +78,10 @@ finish:
 			return err
 		}
 		pageNumDoc := fmt.Sprintf("Page%dHash", pageNumber)
-		if hashDiff {
+		//if hashDiff {
 			storeRankingsHash(resultsHash, pageNumDoc, year, fbc)
 			storeRankings(rankings, year, fbc)
-		}
+		//}
 		return nil
 	}
 	return errors.New("length of rankings array is zero")

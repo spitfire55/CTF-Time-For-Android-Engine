@@ -1,25 +1,25 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
 
 	"cloud.google.com/go/firestore"
 	"google.golang.org/api/option"
+	"net/http"
+	"google.golang.org/appengine"
 )
 
-func connect(token option.ClientOption) (*firestore.Client, context.Context) {
-	ctx := context.Background()
+func connect(token option.ClientOption, r *http.Request) *firestore.Client {
+	ctx := appengine.NewContext(r)
 	client, err := firestore.NewClient(ctx, "ctf-time-for-android", token)
 	if err != nil {
 		fmt.Println(err.Error())
-		return nil, nil
+		return nil
 	} else {
-		return client, ctx
+		return client
 	}
 }
 
@@ -54,7 +54,6 @@ func storeRankings(rankings []Ranking, year string, fbc FirebaseContext) {
 		_, err := fbc.fb.Collection(collectionString).Doc(strconv.Itoa(ranking.Rank)).Set(fbc.ctx, ranking)
 		if err != nil {
 			fmt.Println(err.Error())
-			http.Error(fbc.w, err.Error(), http.StatusInternalServerError)
 		}
 	}
 }
@@ -69,10 +68,11 @@ func storeRankingsHash(hash string, pageNumDoc string, year string, fbc Firebase
 	}
 }
 
+
 func hashDiff(resultsHash string, pageNumber int, year string, fbc FirebaseContext) (bool, error) {
+	collectionPath := fmt.Sprintf("%s_Rankings", year)
 	pageNumDoc := fmt.Sprintf("Page%dHash", pageNumber)
-	collectionString := fmt.Sprintf("%s_Rankings", year)
-	hashDoc, err := fbc.fb.Collection(collectionString).Doc(pageNumDoc).Get(fbc.ctx)
+	hashDoc, err := fbc.fb.Collection(collectionPath).Doc(pageNumDoc).Get(fbc.ctx)
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") { // document doesn't exist, create it
 			return true, err
@@ -84,7 +84,6 @@ func hashDiff(resultsHash string, pageNumber int, year string, fbc FirebaseConte
 		return false, err
 	}
 	if resultsHash != hashDocValue {
-		fmt.Println(hashDocValue)
 		return true, nil
 	} else {
 		return false, nil
