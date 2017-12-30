@@ -9,6 +9,8 @@ import (
 
 	"golang.org/x/net/html"
 	"net/http"
+	"time"
+	"google.golang.org/api/admin/directory/v1"
 )
 
 /*
@@ -22,6 +24,57 @@ type Ranking struct {
 	CountryFlag string
 	CountryID   string
 	Score       float64
+}
+
+type Team struct { // key = Team ID
+	Aliases     []string
+	Academic    string
+	Description string
+	Website     string
+	Member []string
+}
+
+type Event struct { // key = Event ID
+	Start         time.Time
+	End           time.Time
+	CtfId         int // ctf ID
+	Format        string
+	Website       string
+	FutureWeight  float64
+	CurrentWeight float64
+	OrganizerId   int // Team ID of organizer
+	Description   string
+	Prizes        string
+	Scoreboard    []Score
+}
+
+type Score struct { // no key, only used in Scoreboard array in Event
+	TeamId       int
+	CtfPoints    float64
+	RatingPoints float64
+}
+
+type CTF struct { // key = CTF ID
+	Url string
+	Image string // relative Url to image
+}
+
+type Writeup struct { // key = Writeup ID
+	TaskId string
+	AuthorTeam int //Team Id of author
+	WriteupId int
+	WriteupUrl string
+}
+
+type Task struct { // Key = Task ID
+	EventId int // Event Id
+	Tags []string
+	Description string
+	Points int // TODO: Some of the point values are # + # instead of just #
+}
+
+func parseAndStoreTeams(response *http.Response, teamId int, fbc FirebaseContext) error {
+
 }
 
 func parseAndStoreRankings(response *http.Response, pageNumber int, year string, fbc FirebaseContext) error {
@@ -73,14 +126,14 @@ finish:
 		sha256Hash := sha256.New()
 		sha256Hash.Write([]byte(fmt.Sprintf("%#v", rankings)))
 		resultsHash := base64.StdEncoding.EncodeToString(sha256Hash.Sum(nil))
-		hashDiff, err := hashDiff(resultsHash, pageNumber, year, fbc)
+		hashDiff, err := rankingsHashDiff(resultsHash, pageNumber, year, fbc)
 		if err != nil && !hashDiff {
 			return err
 		}
 		pageNumDoc := fmt.Sprintf("Page%dHash", pageNumber)
 		//if hashDiff {
-			storeRankingsHash(resultsHash, pageNumDoc, year, fbc)
-			storeRankings(rankings, year, fbc)
+		storeRankingsHash(resultsHash, pageNumDoc, year, fbc)
+		storeRankings(rankings, year, fbc)
 		//}
 		return nil
 	}

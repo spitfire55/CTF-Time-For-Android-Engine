@@ -6,8 +6,8 @@ import (
 
 	"cloud.google.com/go/firestore"
 	"fmt"
-	"strconv"
 	"google.golang.org/appengine"
+	"strconv"
 	"sync"
 )
 
@@ -31,6 +31,22 @@ func fetch(url string, fbc FirebaseContext) *http.Response {
 	return resp
 }
 
+func updateTeamsHandler(w http.ResponseWriter, r *http.Request) {
+	token := generateToken()
+	fbClient := connect(token, r)
+	var highestNode int
+	if fbClient != nil {
+		fbc := FirebaseContext{
+			w, *r, http.Client{}, appengine.NewContext(r), *fbClient,
+		}
+		highestNode = getLastTeamId(fb)
+		fbc.fb.Close()
+	} else {
+		highestNode = 0
+	}
+
+}
+
 func updateCurrentRankingsHandler(w http.ResponseWriter, r *http.Request) {
 	token := generateToken()
 	year := r.URL.Query().Get("year")
@@ -40,7 +56,7 @@ func updateCurrentRankingsHandler(w http.ResponseWriter, r *http.Request) {
 		fbc := FirebaseContext{
 			w, *r, http.Client{}, appengine.NewContext(r), *FbClient,
 		}
-		highestNode = getLastPageNumber(fbc, year)
+		highestNode = getLastRankingsPageNumber(fbc, year)
 		fbc.fb.Close()
 	} else {
 		highestNode = 0
@@ -49,7 +65,7 @@ func updateCurrentRankingsHandler(w http.ResponseWriter, r *http.Request) {
 	for i := 1; i < highestNode; i += 10 {
 		var wg sync.WaitGroup
 		wg.Add(10)
-		for j := i; j < i + 10 && j < highestNode; j++ {
+		for j := i; j < i+10 && j < highestNode; j++ {
 			go func(j int) {
 				defer wg.Done()
 				FbClient := connect(token, r)
@@ -93,13 +109,13 @@ func updateCurrentRankingsHandler(w http.ResponseWriter, r *http.Request) {
 				highestNode++
 			} else {
 				success = false
-				updateLastPageNumber(fbc, year, highestNode)
+				updateLastRankingsPageNumber(fbc, year, highestNode)
 			}
 			fbc.fb.Close()
 		} else {
 			http.Error(w,
-			"Failed to connect to Firestore",
-			http.StatusInternalServerError)
+				"Failed to connect to Firestore",
+				http.StatusInternalServerError)
 		}
 	}
 	w.Write([]byte("Finished loading contents"))

@@ -8,8 +8,8 @@ import (
 
 	"cloud.google.com/go/firestore"
 	"google.golang.org/api/option"
-	"net/http"
 	"google.golang.org/appengine"
+	"net/http"
 )
 
 func connect(token option.ClientOption, r *http.Request) *firestore.Client {
@@ -27,7 +27,30 @@ func generateToken() option.ClientOption {
 	return option.WithCredentialsFile(os.Getenv("CTF_TIME_KEY"))
 }
 
-func getLastPageNumber(fbc FirebaseContext, year string) int {
+func getLastTeamId(fbc FirebaseContext) int {
+	lastPageNumberDoc, _ := fbc.fb.Collection("Teams").Doc("LastTeamId").Get(fbc.ctx)
+	lastPageNumber, _ := lastPageNumberDoc.DataAt("lastPageNumber")
+	if lastPageNumberInt, ok := lastPageNumber.(int64); ok {
+		return int(lastPageNumberInt)
+	} else {
+		return 0
+	}
+}
+
+func updateLastTeamId(fbc FirebaseContext, newPageNumber int) {
+	_, err := fbc.fb.Collection("Teams").Doc("LastPageNumber").Set(fbc.ctx, map[string]int{
+		"lastPageNumber": newPageNumber,
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func storeTeam(fbc FirebaseContext, team Team) {
+
+}
+
+func getLastRankingsPageNumber(fbc FirebaseContext, year string) int {
 	collectionString := fmt.Sprintf("%s_Rankings", year)
 	lastPageNumberDoc, _ := fbc.fb.Collection(collectionString).Doc("LastPageNumber").Get(fbc.ctx)
 	lastPageNumber, _ := lastPageNumberDoc.DataAt("lastPageNumber")
@@ -38,7 +61,7 @@ func getLastPageNumber(fbc FirebaseContext, year string) int {
 	}
 }
 
-func updateLastPageNumber(fbc FirebaseContext, year string, newPageNumber int) {
+func updateLastRankingsPageNumber(fbc FirebaseContext, year string, newPageNumber int) {
 	collectionString := fmt.Sprintf("%s_Rankings", year)
 	_, err := fbc.fb.Collection(collectionString).Doc("LastPageNumber").Set(fbc.ctx, map[string]int{
 		"lastPageNumber": newPageNumber,
@@ -68,8 +91,7 @@ func storeRankingsHash(hash string, pageNumDoc string, year string, fbc Firebase
 	}
 }
 
-
-func hashDiff(resultsHash string, pageNumber int, year string, fbc FirebaseContext) (bool, error) {
+func rankingsHashDiff(resultsHash string, pageNumber int, year string, fbc FirebaseContext) (bool, error) {
 	collectionPath := fmt.Sprintf("%s_Rankings", year)
 	pageNumDoc := fmt.Sprintf("Page%dHash", pageNumber)
 	hashDoc, err := fbc.fb.Collection(collectionPath).Doc(pageNumDoc).Get(fbc.ctx)
