@@ -2,74 +2,116 @@ package engine
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 
 	"google.golang.org/appengine"
 )
 
-
+// UpdateTeamsHandler handles any requests to <engine_hostname_or_ip>/teams. In order to use 'debug mode', which limits the
+// maximum number of teams requested to 5, set the query key 'debug' to true in the request.
+// The handler operates in two phases.
+//
+// First Phase
+//
+// The first phase triggers multiple goroutines to parse and store teams concurrently. By default, the maximum number of
+// goroutines is 5. To change the maximum number of goroutines running at once, modify the maxRoutines variable.
+// This concurrent phase only requests pages that we have scraped before.
+//
+// Second Phase
+//
+// The second phase operates on the main thread and checks to see if a new team exists. If a new team exists, it is parsed
+// and stored in Firestore. Once phase two has reached the final page, the final page value is updated and stored in
+// Firestore.
 func UpdateTeamsHandler(w http.ResponseWriter, r *http.Request) {
-	debug := true
-	token := GenerateToken()
-	fbClient := Connect(token, r)
 	var highestTeamId int
 	var fbc FirebaseContext
-	if fbClient != nil {
-		fbc = FirebaseContext{
-			W: w, R: *r, C: http.Client{}, Ctx: appengine.NewContext(r), Fb: *fbClient,
-		}
-		if debug {
-			highestTeamId = 5
-		} else {
-			highestTeamId = GetLastTeamId(fbc)
-		}
-		fbc.Fb.Close()
-	} else {
-		log.Fatal("FbClient is nil")
-	}
+	var debug bool
 	newTeam := true
 	maxRoutines := 5
 	guard := make(chan struct{}, maxRoutines)
+
+	if debugQuery := r.URL.Query().Get("debug"); debugQuery == "true" {
+		debug = true
+	}
+
+	token, err := GenerateToken()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if !debug {
+		fbClient, err := Connect(token, r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		fbc = FirebaseContext{
+			Ctx: appengine.NewContext(r), Fb: *fbClient,
+		}
+		if highestTeamId = GetLastTeamId(fbc); highestTeamId == 0 {
+			http.Error(w, "Failed to acquire last team page value from Firestore.", http.StatusInternalServerError)
+			fbc.Fb.Close()
+			return
+		}
+		fbc.Fb.Close()
+	} else {
+		highestTeamId = 6
+	}
+
+	// Phase One
 	for i := 1; i < highestTeamId; i++ {
 		guard <- struct{}{}
-		fbClient := Connect(token, r)
-		if fbClient != nil {
-			fbc = FirebaseContext{
-				W: w, R: *r, C: http.Client{}, Ctx: appengine.NewContext(r), Fb: *fbClient,
+		go func(teamId int) {
+			fbClient, err := Connect(token, r)
+			if err != nil {
+				fmt.Println(err)
+				fmt.Printf("Unable to connect to Firestore for rankings page %d\n", teamId)
+				<-guard
+				return
 			}
-			go func(teamId int, fbc FirebaseContext) {
-				team, err := ParseTeam(teamId)
-				if err != nil {
-					fmt.Println(err.Error())
-					return // something went wrong, don't call the store function
-				}
-				StoreTeam(fbc, team)
-				fbc.Fb.Close()
-				<-guard // must be last line of goroutine
-			}(i, fbc)
-		}
+			fbc = FirebaseContext{
+				Ctx: appengine.NewContext(r), Fb: *fbClient,
+			}
+			defer fbc.Fb.Close()
+
+			teamUrl := fmt.Sprintf("https://ctftime.org/team/%d", teamId)
+			response, err := Fetch(teamUrl)
+			if err != nil {
+				fmt.Println(err.Error())
+				<-guard
+				return
+			}
+			if err := ParseAndStoreTeam(response); err != nil {
+				fmt.Println(err.Error())
+				<-guard
+				return // something went wrong, don't call the store function
+			}
+			<-guard // must be last line of goroutine
+		}(i)
 	}
+
 	for newTeam && !debug {
-		fbClient = Connect(token, r)
-		if fbClient != nil {
-			fbc = FirebaseContext{
-				W: w, R: *r, C: http.Client{}, Ctx: appengine.NewContext(r), Fb: *fbClient,
-			}
-			teamUrl := fmt.Sprintf("https://ctftime.org/team/%d", highestTeamId)
-			response := Fetch(teamUrl, fbc)
-			if response != nil {
-				team, err := ParseTeam(highestTeamId)
-				if err != nil {
-					fmt.Println(err)
-				}
-				StoreTeam(fbc, team)
-				highestTeamId++
-			} else {
-				newTeam = false
-				UpdateLastTeamId(fbc, highestTeamId)
-			}
-			fbc.Fb.Close()
+		fbClient, err := Connect(token, r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
+		fbc = FirebaseContext{
+			Ctx: appengine.NewContext(r), Fb: *fbClient,
+		}
+		teamUrl := fmt.Sprintf("https://ctftime.org/team/%d", highestTeamId)
+		response, err := Fetch(teamUrl)
+		if err != nil {
+			newTeam = false
+			UpdateLastTeamId(fbc, highestTeamId)
+		} else {
+			err := ParseAndStoreTeam(response)
+			if err != nil {
+				fmt.Println(err)
+			}
+			highestTeamId++
+		}
+		fbc.Fb.Close()
 	}
 }

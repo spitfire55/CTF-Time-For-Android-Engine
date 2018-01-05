@@ -1,8 +1,6 @@
 package engine
 
 import (
-	"crypto/sha256"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -11,6 +9,7 @@ import (
 	"golang.org/x/net/html"
 )
 
+// A Ranking contains the fields to be stored in Firestore for a
 type Ranking struct {
 	Rank        int
 	TeamName    string
@@ -20,30 +19,40 @@ type Ranking struct {
 	Score       float64
 }
 
+// ParseAndStoreRankings parses the response body of a rankings page for the values needed to create a Ranking struct. Once
+// the page is parsed and an array of Rankings is created, the results are stored in the Firestore database IF the sha256
+// hash of Rankings array is different from the hash stored in the Firestore database. If the page is new, no hash exists
+// in the Firestore database, which means a page hash document will be created along with the Ranking documents.
 func ParseAndStoreRankings(response *http.Response, pageNumber int, year string, fbc FirebaseContext) error {
+	//TODO: Migrate from html.Tokenizer to GoQuery
 	var rankings []Ranking
+	pageNumDoc := fmt.Sprintf("Page%dHash", pageNumber)
+	firstRow := true // flag to ignore table headers
 	z := html.NewTokenizer(response.Body)
-	firstRow := true
+
 	for {
 		tk := z.Next()
 		switch {
 		case tk == html.ErrorToken: // reached end of HTML file
-			goto finish
+			goto hashCheck
 		case tk == html.StartTagToken:
 			if string(z.Raw()) == "<tr>" {
+				var ranking Ranking
+				var rankingRow []html.Token
+				rowLength := 0
+
 				if firstRow {
 					firstRow = false
 					break
 				}
 				z.Next()
-				rowLength := 0
-				var ranking Ranking
-				var rankingRow []html.Token
+
 				for string(z.Raw()) != "</tr>" {
 					rankingRow = append(rankingRow, z.Token())
 					rowLength++
 					z.Next()
 				}
+
 				ranking.Rank, _ = strconv.Atoi(rankingRow[1].Data)
 				ranking.TeamUrl = rankingRow[4].Attr[0].Val
 				ranking.TeamName = rankingRow[5].Data
@@ -64,21 +73,20 @@ func ParseAndStoreRankings(response *http.Response, pageNumber int, year string,
 			}
 		}
 	}
-finish:
+
+hashCheck:
 	if len(rankings) > 0 {
-		sha256Hash := sha256.New()
-		sha256Hash.Write([]byte(fmt.Sprintf("%#v", rankings)))
-		resultsHash := base64.StdEncoding.EncodeToString(sha256Hash.Sum(nil))
+		resultsHash := CalculateHash(rankings)
 		hashDiff, err := RankingsHashDiff(resultsHash, pageNumber, year, fbc)
-		if err != nil && !hashDiff {
+		if err != nil {
 			return err
 		}
-		pageNumDoc := fmt.Sprintf("Page%dHash", pageNumber)
-		//if hashDiff {
-		StoreRankingsHash(resultsHash, pageNumDoc, year, fbc)
-		StoreRankings(rankings, year, fbc)
-		//}
-		return nil
+		if hashDiff {
+			StoreRankingsHash(resultsHash, pageNumDoc, year, fbc)
+			StoreRankings(rankings, year, fbc)
+		}
+	} else {
+		return errors.New("length of rankings array is zero")
 	}
-	return errors.New("length of rankings array is zero")
+	return nil
 }
