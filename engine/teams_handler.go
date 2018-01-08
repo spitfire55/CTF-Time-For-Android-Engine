@@ -60,7 +60,7 @@ func UpdateTeamsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Phase One
-	for i := 1; i < highestTeamId; i++ {
+	for i := 570; i < 570 + highestTeamId; i++ {
 		guard <- struct{}{}
 		go func(teamId int) {
 			fbClient, err := Connect(token, r)
@@ -79,14 +79,14 @@ func UpdateTeamsHandler(w http.ResponseWriter, r *http.Request) {
 			response, err := Fetch(teamUrl)
 			if err != nil {
 				fmt.Println(err.Error())
-				<-guard
-				return
+				goto release
 			}
+
 			if err := ParseAndStoreTeam(response); err != nil {
 				fmt.Println(err.Error())
-				<-guard
-				return // something went wrong, don't call the store function
+				goto release
 			}
+			release:
 			<-guard // must be last line of goroutine
 		}(i)
 	}
@@ -100,6 +100,7 @@ func UpdateTeamsHandler(w http.ResponseWriter, r *http.Request) {
 		fbc = FirebaseContext{
 			Ctx: appengine.NewContext(r), Fb: *fbClient,
 		}
+
 		teamUrl := fmt.Sprintf("https://ctftime.org/team/%d", highestTeamId)
 		response, err := Fetch(teamUrl)
 		if err != nil {
@@ -112,6 +113,8 @@ func UpdateTeamsHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			highestTeamId++
 		}
+
 		fbc.Fb.Close()
 	}
+	w.Write([]byte("Finished doing work"))
 }
