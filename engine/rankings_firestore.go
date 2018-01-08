@@ -28,8 +28,7 @@ func GetLastRankingsPageNumber(fbc FirebaseContext, year string) int {
 
 // UpdateLastRankingsPageNumber updates the final rankings page number for a certain year to the Firestore database.
 // The upload path is: <year>_Rankings/LastPageNumber/lastPageNumber
-func UpdateLastRankingsPageNumber(fbc FirebaseContext,
-	year string, newPageNumber int) {
+func UpdateLastRankingsPageNumber(fbc FirebaseContext, year string, newPageNumber int) {
 	collectionString := fmt.Sprintf("%s_Rankings", year)
 	_, err := fbc.Fb.Collection(collectionString).
 		Doc("LastPageNumber").Set(fbc.Ctx, map[string]int{
@@ -80,18 +79,23 @@ func RankingsHashDiff(resultsHash string, pageNumber int, year string, fbc Fireb
 	pageNumDoc := fmt.Sprintf("Page%dHash", pageNumber)
 	hashDoc, err := fbc.Fb.Collection(collectionPath).Doc(pageNumDoc).Get(fbc.Ctx)
 	if err != nil {
-		if strings.Contains(err.Error(), "NotFound") { // document doesn't exist, create it
+		// Document doesn't exists, so error is nil to create it
+		if strings.Contains(err.Error(), "NotFound") {
 			return true, nil
 		}
+		// Some other error, so return error
 		return false, err
 	}
 	hashDocValue, err := hashDoc.DataAt("hash")
 	if err != nil {
+		// Document doesn't have hash field or we can't read it, so return error
 		return false, err
 	}
 	if resultsHash != hashDocValue {
+		// Hashes are different, so no error
 		return true, nil
 	} else {
+		// Hashes are same, so no error but return false to prevent unnecessary write
 		return false, nil
 	}
 }

@@ -88,14 +88,8 @@ func UpdateRankingsHandler(w http.ResponseWriter, r *http.Request) {
 			response, err := Fetch(rankingsUrl)
 			if err != nil {
 				fmt.Println(err.Error())
-				<-guard
-				return
-			}
-
-			if err := ParseAndStoreRankings(response, i, year, fbc); err != nil {
+			} else if err := ParseAndStoreRankings(response, i, year, fbc); err != nil {
 				fmt.Println(err.Error())
-				<-guard
-				return
 			}
 			<-guard
 		}(i)

@@ -23,11 +23,11 @@ import (
 // and stored in Firestore. Once phase two has reached the final page, the final page value is updated and stored in
 // Firestore.
 func UpdateTeamsHandler(w http.ResponseWriter, r *http.Request) {
-	var highestTeamId int
+	var highestTeamId, offset int
 	var fbc FirebaseContext
 	var debug bool
 	newTeam := true
-	maxRoutines := 5
+	maxRoutines := 10
 	guard := make(chan struct{}, maxRoutines)
 
 	if debugQuery := r.URL.Query().Get("debug"); debugQuery == "true" {
@@ -41,6 +41,7 @@ func UpdateTeamsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !debug {
+		offset = 1
 		fbClient, err := Connect(token, r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -50,23 +51,24 @@ func UpdateTeamsHandler(w http.ResponseWriter, r *http.Request) {
 			Ctx: appengine.NewContext(r), Fb: *fbClient,
 		}
 		if highestTeamId = GetLastTeamId(fbc); highestTeamId == 0 {
-			http.Error(w, "Failed to acquire last team page value from Firestore.", http.StatusInternalServerError)
+			http.Error(w, "Failed to acquire last team id value from Firestore.", http.StatusInternalServerError)
 			fbc.Fb.Close()
 			return
 		}
 		fbc.Fb.Close()
 	} else {
 		highestTeamId = 6
+		offset = 570
 	}
 
 	// Phase One
-	for i := 570; i < 570 + highestTeamId; i++ {
+	for i := offset; i < offset+highestTeamId; i++ {
 		guard <- struct{}{}
 		go func(teamId int) {
 			fbClient, err := Connect(token, r)
 			if err != nil {
 				fmt.Println(err)
-				fmt.Printf("Unable to connect to Firestore for rankings page %d\n", teamId)
+				fmt.Printf("Unable to connect to Firestore for team id %d\n", teamId)
 				<-guard
 				return
 			}
@@ -79,14 +81,10 @@ func UpdateTeamsHandler(w http.ResponseWriter, r *http.Request) {
 			response, err := Fetch(teamUrl)
 			if err != nil {
 				fmt.Println(err.Error())
-				goto release
+			} else if err := ParseAndStoreTeam(i, response, fbc); err != nil {
+				fmt.Println(err.Error())
 			}
 
-			if err := ParseAndStoreTeam(response); err != nil {
-				fmt.Println(err.Error())
-				goto release
-			}
-			release:
 			<-guard // must be last line of goroutine
 		}(i)
 	}
@@ -107,7 +105,7 @@ func UpdateTeamsHandler(w http.ResponseWriter, r *http.Request) {
 			newTeam = false
 			UpdateLastTeamId(fbc, highestTeamId)
 		} else {
-			err := ParseAndStoreTeam(response)
+			err := ParseAndStoreTeam(highestTeamId, response, fbc)
 			if err != nil {
 				fmt.Println(err)
 			}
