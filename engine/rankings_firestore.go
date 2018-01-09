@@ -83,6 +83,7 @@ func RankingsHashDiff(resultsHash string, pageNumber int, year string, fbc Fireb
 		if strings.Contains(err.Error(), "NotFound") {
 			return true, nil
 		}
+		fmt.Println("wtf m8")
 		// Some other error, so return error
 		return false, err
 	}

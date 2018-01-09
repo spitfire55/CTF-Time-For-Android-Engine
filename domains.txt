@@ -26,6 +26,11 @@ type Event struct { // key = Event ID
 	Scoreboard    []Score
 }
 
+type Member { // no key, auto-id
+    Id     string
+    Name   string
+}
+
 type Score struct { // no key, only used in Scoreboard array in Event
 	TeamId       int
 	CtfPoints    float64

@@ -1,16 +1,17 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
 	"google.golang.org/appengine"
 )
 
-// UpdateCurrentRankingsHandler handles any requests to <engine_hostname_or_ip>/rankings. In order to work correctly, the
-// request must include the query string 'year'. The year query value will be used to request the respective year's rankings
-// from ctftime.org. In order to use 'debug mode', which limits the maximum number of ranking pages requested to 2, set the
-// query key 'debug' to true in the request. This handler operates in two phases.
+// UpdateRankingsHandler handles any requests to <engine_hostname_or_ip>/rankings. In order to work correctly, the request must
+// include the query string 'year'. The year query value will be used to request the respective year's rankings from
+// ctftime.org. In order to use 'debug mode', which limits the maximum number of ranking pages requested to 2, set the query
+// key 'debug' to true in the request. This handler operates in two phases.
 //
 // First Phase
 //
@@ -27,6 +28,7 @@ func UpdateRankingsHandler(w http.ResponseWriter, r *http.Request) {
 	var highestRankingsPage int
 	var debug bool
 	newRankingsPage := true
+	ctx := appengine.WithContext(context.Background(), r)
 	maxRoutines := 10
 	guard := make(chan bool, maxRoutines)
 
@@ -47,20 +49,19 @@ func UpdateRankingsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !debug {
-		fbClient, err := Connect(token, r)
+		fbc, err := NewFirebaseContext(ctx, token)
 		if err != nil {
-			http.Error(w, "Unable to connect to Firestore to acquire final page number", http.StatusInternalServerError)
+			fmt.Println(err.Error())
 			return
 		}
-		fbc := FirebaseContext{
-			Ctx: appengine.NewContext(r), Fb: *fbClient,
-		}
+
 		highestRankingsPage = GetLastRankingsPageNumber(fbc, year)
 		if highestRankingsPage == 0 {
 			http.Error(w, "Failed to acquire last rankings page value from Firestore.", http.StatusInternalServerError)
 			fbc.Fb.Close()
 			return
 		}
+
 		fbc.Fb.Close()
 	} else {
 		highestRankingsPage = 2
@@ -69,57 +70,54 @@ func UpdateRankingsHandler(w http.ResponseWriter, r *http.Request) {
 	// Phase One
 	for i := 1; i < highestRankingsPage; i++ {
 		guard <- true
-		go func(i int) {
-			defer func(){ <- guard }()
-			FbClient, err := Connect(token, r)
+		go func(teamId int) {
+			defer func() { <-guard }()
+
+			fbc, err := NewFirebaseContext(ctx, token)
 			if err != nil {
-				fmt.Printf("Unable to connect to Firestore for rankings page %d", i)
+				fmt.Println(err.Error())
 				return
 			}
-			fbc := FirebaseContext{
-				Ctx: appengine.NewContext(r), Fb: *FbClient,
-			}
+			defer fbc.Fb.Close()
 
-			rankingsUrl := fmt.Sprintf("https://ctftime.org/stats/%s?page=%d", year, i)
-			response, err := Fetch(rankingsUrl)
-			if err != nil {
+			rankingsUrl := fmt.Sprintf("https://ctftime.org/stats/%s?page=%d", year, teamId)
+			if response, err := Fetch(rankingsUrl); err != nil {
 				fmt.Println(err.Error())
-			} else if err := ParseAndStoreRankings(response, i, year, fbc); err != nil {
+			} else if err := ParseAndStoreRankings(response, teamId, year, fbc); err != nil {
 				fmt.Println(err.Error())
 			}
-			fbc.Fb.Close()
 		}(i)
 	}
 
+	for i := 0; i < maxRoutines; i++ {
+		guard <- true
+	}
+
 	// Phase Two
-	for newRankingsPage {
+	fbc, err := NewFirebaseContext(ctx, token)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	defer fbc.Fb.Close()
 
-		fbClient, err := Connect(token, r)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		fbc := FirebaseContext{
-			Ctx: appengine.NewContext(r), Fb: *fbClient,
-		}
-
+	for newRankingsPage && !debug {
 		rankingsUrl := fmt.Sprintf("https://ctftime.org/stats/%s?page=%d", year, highestRankingsPage)
 		response, err := Fetch(rankingsUrl)
 
-		// reached last page
 		if err != nil {
 			newRankingsPage = false
 			UpdateLastRankingsPageNumber(fbc, year, highestRankingsPage)
-			fbc.Fb.Close()
-			w.Write([]byte("Finished loading contents"))
-			return
+			goto finish
 		}
 
-		// new page found
 		if err = ParseAndStoreRankings(response, highestRankingsPage, year, fbc); err != nil {
 			fmt.Println(err)
 		}
+
 		highestRankingsPage++
-		fbc.Fb.Close()
 	}
+
+finish:
+	w.Write([]byte("Finished loading contents"))
 }

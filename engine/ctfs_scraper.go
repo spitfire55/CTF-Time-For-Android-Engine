@@ -8,9 +8,9 @@ import (
 
 type Ctf struct { // key = CTF ID
 	Hash  string
+	Image string // relative Url to image
 	Name  string
 	Url   string
-	Image string // relative Url to image
 }
 
 func ParseAndStoreCtf(ctfId int, resp *http.Response, fbc FirebaseContext) error {

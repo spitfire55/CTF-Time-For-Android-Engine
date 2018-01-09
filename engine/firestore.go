@@ -3,7 +3,6 @@ package engine
 import (
 	"context"
 	"errors"
-	"net/http"
 	"os"
 
 	"cloud.google.com/go/firestore"
@@ -15,7 +14,15 @@ type FirebaseContext struct {
 	Fb  firestore.Client // client used in connection to Firestore
 }
 
-func Connect(token option.ClientOption, r *http.Request) (*firestore.Client, error) {
+func NewFirebaseContext(ctx context.Context, token option.ClientOption) (FirebaseContext, error) {
+	teamFbClient, err := Connect(token)
+	if err != nil {
+		return FirebaseContext{}, err
+	}
+	return FirebaseContext{ctx, *teamFbClient}, nil
+}
+
+func Connect(token option.ClientOption) (*firestore.Client, error) {
 	ctx := context.Background()
 	client, err := firestore.NewClient(ctx, "ctf-time-for-android", token)
 	if err != nil {

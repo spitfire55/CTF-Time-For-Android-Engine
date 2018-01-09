@@ -3,37 +3,45 @@ package engine
 import (
 	"github.com/PuerkitoBio/goquery"
 	"net/http"
+	"strconv"
 	"strings"
-	"fmt"
 )
 
 type Team struct { // key = Team ID
-	Hash        string
-	Name        string
+	Hash string
+	// General
 	Aliases     []string
 	Academic    string
+	CountryCode string
 	Description string
 	Logo        string // relative URL
-	Website     string
-	Twitter     string
-	Email       string
-	ICQ         string
-	Skype       string
-	LinkedIn    string
-	Telegram    string
-	Jabber      string
-	OtherLinks  []string
-	Member      []string
+	Members     []Member
+	Name        string
+	// Social
+	Email      string
+	ICQ        string
+	Jabber     string
+	LinkedIn   string
+	OtherLinks []string
+	Skype      string
+	Telegram   string
+	Twitter    string
+	Website    string
+}
+
+type Member struct {
+	Id   int
+	Name string
 }
 
 func ParseAndStoreTeam(teamId int, resp *http.Response, fbc FirebaseContext) error {
 	var team Team
 	rootSel, err := goquery.NewDocumentFromResponse(resp)
 	if err != nil {
-		fmt.Println("booty")
 		return err
 	}
 	team.Name = rootSel.Find(".breadcrumb .active").Text()
+	team.CountryCode, _ = rootSel.Find("h2 img").Attr("alt")
 
 	rootSel.Find(".span10 h5").Siblings().Find("li").Each(func(i int, selection *goquery.Selection) {
 		team.Aliases = append(team.Aliases, selection.Text())
@@ -45,28 +53,36 @@ func ParseAndStoreTeam(teamId int, resp *http.Response, fbc FirebaseContext) err
 			team.Description = text
 		} else if strings.Contains(text, "Academic team ") {
 			team.Academic = strings.Join(strings.Split(text, " ")[2:], " ")
-		} else if strings.Contains(text, "Website: ") && team.Website == "" { // keep oldest
-			team.Website = strings.Join(strings.Split(text, " ")[1:], " ")
-		} else if strings.Contains(text, "Twitter: ") {
-			team.Twitter = strings.Join(strings.Split(text, " ")[1:], " ")
+		} else if strings.Contains(text, "Email: ") && team.Email == "" { // keep oldest
+			team.Email = strings.Join(strings.Split(text, " ")[1:], " ")
+		} else if strings.Contains(text, "ICQ: ") {
+			team.ICQ = strings.Join(strings.Split(text, " ")[1:], " ")
+		} else if strings.Contains(text, "Jabber: ") {
+			team.Jabber = strings.Join(strings.Split(text, " ")[1:], " ")
+		} else if strings.Contains(text, "LinkedIn: ") {
+			team.LinkedIn = strings.Join(strings.Split(text, " ")[1:], " ")
+		} else if strings.Contains(text, "Other: ") { // keep all of them
+			team.OtherLinks = append(team.OtherLinks, strings.Join(strings.Split(text, " ")[1:], " "))
 		} else if strings.Contains(text, "Skype: ") {
 			team.Skype = strings.Join(strings.Split(text, " ")[1:], " ")
 		} else if strings.Contains(text, "Telegram: ") {
 			team.Telegram = strings.Join(strings.Split(text, " ")[1:], " ")
-		} else if strings.Contains(text, "ICQ: ") {
-			team.ICQ = strings.Join(strings.Split(text, " ")[1:], " ")
-		} else if strings.Contains(text, "Email: ") && team.Email == "" { // keep oldest
-			team.Email = strings.Join(strings.Split(text, " ")[1:], " ")
-		} else if strings.Contains(text, "LinkedIn: ") {
-			team.LinkedIn = strings.Join(strings.Split(text, " ")[1:], " ")
-		} else if strings.Contains(text, "Jabber: ") {
-			team.Jabber = strings.Join(strings.Split(text, " ")[1:], " ")
-		} else if strings.Contains(text, "Other: ") { // keep all of them
-			team.OtherLinks = append(team.OtherLinks, strings.Join(strings.Split(text, " ")[1:], " "))
+		} else if strings.Contains(text, "Twitter: ") {
+			team.Twitter = strings.Join(strings.Split(text, " ")[1:], " ")
+		} else if strings.Contains(text, "Website: ") && team.Website == "" { // keep oldest
+			team.Website = strings.Join(strings.Split(text, " ")[1:], " ")
 		}
 	})
 
+	rootSel.Find("#recent_members td").Each(func(i int, selection *goquery.Selection) {
+		idUrl, _ := selection.Find("a").Attr("href")
+		idSplit := strings.Split(idUrl, "/")
+		id, _ := strconv.Atoi(idSplit[len(idSplit)-1])
+		team.Members = append(team.Members, Member{Id: id, Name: selection.Find("a").Text()})
+	})
+
 	team.Logo, _ = rootSel.Find(".span2 img").First().Attr("src")
+
 	teamHash := CalculateHash(team)
 	team.Hash = teamHash
 	hashDiff, err := TeamHashDiff(teamId, team, fbc)

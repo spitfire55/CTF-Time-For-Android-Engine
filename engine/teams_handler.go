@@ -1,11 +1,11 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
 	"google.golang.org/appengine"
-	"cloud.google.com/go/firestore"
 )
 
 // UpdateTeamsHandler handles any requests to <engine_hostname_or_ip>/teams. In order to use 'debug mode', which limits the
@@ -27,6 +27,7 @@ func UpdateTeamsHandler(w http.ResponseWriter, r *http.Request) {
 	var highestTeamId int
 	var debug bool
 	newTeam := true
+	ctx := appengine.WithContext(context.Background(), r)
 	maxRoutines := 10
 	guard := make(chan bool, maxRoutines)
 
@@ -41,13 +42,10 @@ func UpdateTeamsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !debug {
-		fbClient, err := Connect(token, r)
+		fbc, err := NewFirebaseContext(ctx, token)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			fmt.Println(err.Error())
 			return
-		}
-		fbc := FirebaseContext{
-			Ctx: appengine.NewContext(r), Fb: *fbClient,
 		}
 
 		if highestTeamId = GetLastTeamId(fbc); highestTeamId == 0 {
@@ -55,65 +53,62 @@ func UpdateTeamsHandler(w http.ResponseWriter, r *http.Request) {
 			fbc.Fb.Close()
 			return
 		}
+
 		fbc.Fb.Close()
+	} else {
+		highestTeamId = 11
 	}
 
 	// Phase One
-	for i := 1; i < 10; i++ {
+	for i := 1; i < highestTeamId; i++ {
 		guard <- true
 		go func(teamId int) {
-			defer func(){ <-guard }()
-			var fbClient *firestore.Client
-			fbClient, err = Connect(token, r)
+			defer func() { <-guard }()
+
+			fbc, err := NewFirebaseContext(ctx, token)
 			if err != nil {
-				fmt.Println(err)
-				fmt.Printf("Unable to connect to Firestore for team id %d\n", teamId)
+				fmt.Println(err.Error())
 				return
 			}
-			fbc := FirebaseContext{
-				Ctx: appengine.NewContext(r), Fb: *fbClient,
-			}
+			defer fbc.Fb.Close()
 
 			teamUrl := fmt.Sprintf("https://ctftime.org/team/%d", teamId)
-			response, err := Fetch(teamUrl)
-			if err != nil {
+			if response, err := Fetch(teamUrl); err != nil {
+				fmt.Println(err.Error())
+			} else if err = ParseAndStoreTeam(teamId, response, fbc); err != nil {
 				fmt.Println(err.Error())
 			}
-			err = ParseAndStoreTeam(teamId, response, fbc)
-			if err != nil {
-				fmt.Println(err.Error())
-			}
-
-			fbc.Fb.Close()
 		}(i)
 	}
+
 	for i := 0; i < maxRoutines; i++ {
 		guard <- true
 	}
 
-	for newTeam && !debug {
-		fbClient, err := Connect(token, r)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		fbc := FirebaseContext{
-			Ctx: appengine.NewContext(r), Fb: *fbClient,
-		}
+	// Phase Two
+	fbc, err := NewFirebaseContext(ctx, token)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	defer fbc.Fb.Close()
 
+	for newTeam && !debug {
 		teamUrl := fmt.Sprintf("https://ctftime.org/team/%d", highestTeamId)
 		response, err := Fetch(teamUrl)
+
 		if err != nil {
 			newTeam = false
 			UpdateLastTeamId(fbc, highestTeamId)
-		} else {
-			err := ParseAndStoreTeam(highestTeamId, response, fbc)
-			if err != nil {
-				fmt.Println(err)
-			}
-			highestTeamId++
+			goto finish
 		}
-		fbc.Fb.Close()
+		if err := ParseAndStoreTeam(highestTeamId, response, fbc); err != nil {
+			fmt.Println(err)
+		}
+
+		highestTeamId++
 	}
+
+finish:
 	w.Write([]byte("Finished doing work"))
 }
