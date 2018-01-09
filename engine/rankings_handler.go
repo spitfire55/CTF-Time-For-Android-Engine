@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"cloud.google.com/go/firestore"
 	"google.golang.org/appengine"
 )
 
@@ -25,13 +24,11 @@ import (
 // parsed and stored in Firestore. Once we identify that phase two have reached the final page, the final page value is
 // updated and stored in Firestore.
 func UpdateRankingsHandler(w http.ResponseWriter, r *http.Request) {
-	var fbClient *firestore.Client
 	var highestRankingsPage int
-	var fbc FirebaseContext
 	var debug bool
 	newRankingsPage := true
 	maxRoutines := 10
-	guard := make(chan struct{}, maxRoutines)
+	guard := make(chan bool, maxRoutines)
 
 	if debugQuery := r.URL.Query().Get("debug"); debugQuery == "true" {
 		debug = true
@@ -50,12 +47,12 @@ func UpdateRankingsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !debug {
-		fbClient, err = Connect(token, r)
+		fbClient, err := Connect(token, r)
 		if err != nil {
 			http.Error(w, "Unable to connect to Firestore to acquire final page number", http.StatusInternalServerError)
 			return
 		}
-		fbc = FirebaseContext{
+		fbc := FirebaseContext{
 			Ctx: appengine.NewContext(r), Fb: *fbClient,
 		}
 		highestRankingsPage = GetLastRankingsPageNumber(fbc, year)
@@ -71,18 +68,17 @@ func UpdateRankingsHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Phase One
 	for i := 1; i < highestRankingsPage; i++ {
-		guard <- struct{}{}
+		guard <- true
 		go func(i int) {
+			defer func(){ <- guard }()
 			FbClient, err := Connect(token, r)
 			if err != nil {
 				fmt.Printf("Unable to connect to Firestore for rankings page %d", i)
-				<-guard
 				return
 			}
-			fbc = FirebaseContext{
+			fbc := FirebaseContext{
 				Ctx: appengine.NewContext(r), Fb: *FbClient,
 			}
-			defer fbc.Fb.Close()
 
 			rankingsUrl := fmt.Sprintf("https://ctftime.org/stats/%s?page=%d", year, i)
 			response, err := Fetch(rankingsUrl)
@@ -91,19 +87,19 @@ func UpdateRankingsHandler(w http.ResponseWriter, r *http.Request) {
 			} else if err := ParseAndStoreRankings(response, i, year, fbc); err != nil {
 				fmt.Println(err.Error())
 			}
-			<-guard
+			fbc.Fb.Close()
 		}(i)
 	}
 
 	// Phase Two
 	for newRankingsPage {
 
-		fbClient, err = Connect(token, r)
+		fbClient, err := Connect(token, r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		fbc = FirebaseContext{
+		fbc := FirebaseContext{
 			Ctx: appengine.NewContext(r), Fb: *fbClient,
 		}
 

@@ -35,7 +35,7 @@ func UpdateLastCtfId(fbc FirebaseContext, newCtfId int) {
 }
 
 func StoreCtf(ctfId int, ctf Ctf, fbc FirebaseContext) error {
-	_, err := fbc.Fb.Collection("CTFs").Doc(strconv.Itoa(ctfId)).Get(fbc.Ctx)
+	_, err := fbc.Fb.Collection("CTFs").Doc(strconv.Itoa(ctfId)).Set(fbc.Ctx, ctf)
 	if err != nil {
 		return err
 	}
@@ -52,12 +52,12 @@ func CtfHashDiff(id int, ctf Ctf, fbc FirebaseContext) (bool, error) {
 		// Some other error, so return error
 		return false, err
 	}
-	hashDocValue, err := hashDoc.DataAt("hash")
+	hashDocValue, err := hashDoc.DataAt("Hash")
 	if err != nil {
 		// Document doesn't have hash field or we can't read it, so return error
 		return false, err
 	}
-	if ctf.hash != hashDocValue {
+	if ctf.Hash != hashDocValue {
 		// Hashes are different, so return true
 		return true, nil
 	} else {

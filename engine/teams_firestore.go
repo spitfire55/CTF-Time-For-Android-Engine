@@ -50,12 +50,12 @@ func TeamHashDiff(id int, team Team, fbc FirebaseContext) (bool, error) {
 		// Some other error, so return error
 		return false, err
 	}
-	hashDocValue, err := hashDoc.DataAt("hash")
+	hashDocValue, err := hashDoc.DataAt("Hash")
 	if err != nil {
 		// Document doesn't have hash field or we can't read it, so return error
 		return false, err
 	}
-	if team.hash != hashDocValue {
+	if team.Hash != hashDocValue {
 		// Hashes are different, so return true
 		return true, nil
 	} else {

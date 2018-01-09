@@ -1,20 +1,19 @@
 package engine
 
 import (
-	"cloud.google.com/go/firestore"
 	"fmt"
 	"google.golang.org/appengine"
 	"net/http"
+	"cloud.google.com/go/firestore"
 )
 
 func UpdateCtfsHandler(w http.ResponseWriter, r *http.Request) {
 	var fbClient *firestore.Client
 	var highestCtfId int
-	var fbc FirebaseContext
 	var debug bool
 	newCtf := true
 	maxRoutines := 10
-	guard := make(chan struct{}, maxRoutines)
+	guard := make(chan bool, maxRoutines)
 
 	if debugQuery := r.URL.Query().Get("debug"); debugQuery == "true" {
 		debug = true
@@ -32,7 +31,7 @@ func UpdateCtfsHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Unable to connect to Firestore to acquire final page number", http.StatusInternalServerError)
 			return
 		}
-		fbc = FirebaseContext{
+		fbc := FirebaseContext{
 			Ctx: appengine.NewContext(r), Fb: *fbClient,
 		}
 		highestCtfId = GetLastCtfId(fbc)
@@ -43,32 +42,34 @@ func UpdateCtfsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		fbc.Fb.Close()
 	} else {
-		highestCtfId = 2
+		highestCtfId = 11
 	}
 
 	// Phase One
 	for i := 1; i < highestCtfId; i++ {
-		guard <- struct{}{}
-		go func(i int) {
-			FbClient, err := Connect(token, r)
+		guard <- true
+		go func(ctfId int) {
+			defer func(){ <-guard }()
+			fbClient, err := Connect(token, r)
 			if err != nil {
-				fmt.Printf("Unable to connect to Firestore for ctf id %d", i)
-				<-guard
+				fmt.Printf("Unable to connect to Firestore for ctf id %d", ctfId)
 				return
 			}
-			fbc = FirebaseContext{
-				Ctx: appengine.NewContext(r), Fb: *FbClient,
+			fbc := FirebaseContext{
+				Ctx: appengine.NewContext(r), Fb: *fbClient,
 			}
-			ctfUrl := fmt.Sprintf("https://ctftime.org/ctf/%d", i)
+			ctfUrl := fmt.Sprintf("https://ctftime.org/ctf/%d", ctfId)
 			response, err := Fetch(ctfUrl)
 			if err != nil {
 				fmt.Println(err.Error())
-			} else if err := ParseAndStoreCtf(i, response, fbc); err != nil {
-				fmt.Println("wtf" + err.Error())
+			} else if err := ParseAndStoreCtf(ctfId, response, fbc); err != nil {
+				fmt.Println(err.Error())
 			}
 			fbc.Fb.Close()
-			<-guard
 		}(i)
+	}
+	for i := 0; i < maxRoutines; i++ {
+		guard <- true
 	}
 
 	// Phase Two
@@ -78,7 +79,7 @@ func UpdateCtfsHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		fbc = FirebaseContext{
+		fbc := FirebaseContext{
 			Ctx: appengine.NewContext(r), Fb: *fbClient,
 		}
 

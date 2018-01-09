@@ -4,10 +4,11 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"net/http"
 	"strings"
+	"fmt"
 )
 
 type Team struct { // key = Team ID
-	hash        string
+	Hash        string
 	Name        string
 	Aliases     []string
 	Academic    string
@@ -29,9 +30,10 @@ func ParseAndStoreTeam(teamId int, resp *http.Response, fbc FirebaseContext) err
 	var team Team
 	rootSel, err := goquery.NewDocumentFromResponse(resp)
 	if err != nil {
+		fmt.Println("booty")
 		return err
 	}
-	team.Name = rootSel.Find("h2").Text()
+	team.Name = rootSel.Find(".breadcrumb .active").Text()
 
 	rootSel.Find(".span10 h5").Siblings().Find("li").Each(func(i int, selection *goquery.Selection) {
 		team.Aliases = append(team.Aliases, selection.Text())
@@ -65,15 +67,17 @@ func ParseAndStoreTeam(teamId int, resp *http.Response, fbc FirebaseContext) err
 	})
 
 	team.Logo, _ = rootSel.Find(".span2 img").First().Attr("src")
-
 	teamHash := CalculateHash(team)
-	team.hash = teamHash
+	team.Hash = teamHash
 	hashDiff, err := TeamHashDiff(teamId, team, fbc)
 	if err != nil {
 		return err
 	}
 	if hashDiff {
-		StoreTeam(teamId, team, fbc)
+		err = StoreTeam(teamId, team, fbc)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
