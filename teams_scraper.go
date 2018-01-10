@@ -4,6 +4,7 @@
 package goctftime
 
 import (
+	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"net/http"
 	"strconv"
@@ -20,7 +21,7 @@ type Team struct { // key = Team ID
 	Logo        string // relative URL
 	Members     []Member
 	Name        string
-	Rankings    map[string]float64
+	Scores      map[string]float64
 	// Social
 	Email      string
 	ICQ        string
@@ -40,16 +41,17 @@ type Member struct {
 
 func ParseAndStoreTeam(teamId int, resp *http.Response, fbc FirebaseContext) error {
 	var team Team
+	team.Scores = make(map[string]float64)
 	rootSel, err := goquery.NewDocumentFromResponse(resp)
 	if err != nil {
 		return err
 	}
-	team.Name = rootSel.Find(".breadcrumb .active").Text()
-	team.CountryCode, _ = rootSel.Find("h2 img").Attr("alt")
 
 	rootSel.Find(".span10 h5").Siblings().Find("li").Each(func(i int, selection *goquery.Selection) {
 		team.Aliases = append(team.Aliases, selection.Text())
 	})
+
+	team.CountryCode, _ = rootSel.Find("h2 img").Attr("alt")
 
 	rootSel.Find(".span10 p").Each(func(i int, selection *goquery.Selection) {
 		text := selection.Text()
@@ -78,6 +80,8 @@ func ParseAndStoreTeam(teamId int, resp *http.Response, fbc FirebaseContext) err
 		}
 	})
 
+	team.Logo, _ = rootSel.Find(".span2 img").First().Attr("src")
+
 	rootSel.Find("#recent_members td").Each(func(i int, selection *goquery.Selection) {
 		idUrl, _ := selection.Find("a").Attr("href")
 		idSplit := strings.Split(idUrl, "/")
@@ -85,7 +89,13 @@ func ParseAndStoreTeam(teamId int, resp *http.Response, fbc FirebaseContext) err
 		team.Members = append(team.Members, Member{Id: id, Name: selection.Find("a").Text()})
 	})
 
-	team.Logo, _ = rootSel.Find(".span2 img").First().Attr("src")
+	team.Name = rootSel.Find(".breadcrumb .active").Text()
+
+	for year := 2011; year < 2018; year++ {
+		yearStr := strconv.Itoa(year)
+		findStr := fmt.Sprintf("#rating_%s p b", yearStr)
+		team.Scores[yearStr], _ = strconv.ParseFloat(rootSel.Find(findStr).Last().Text(), 64)
+	}
 
 	teamHash := CalculateHash(team)
 	team.Hash = teamHash

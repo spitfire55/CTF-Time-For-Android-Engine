@@ -12,7 +12,7 @@ import (
 	"google.golang.org/api/option"
 )
 
-// FirebaseContext contains the necessary variables to get/set Firestore data.
+// FirebaseContext contains the necessary variables to get/set Firestore data
 type FirebaseContext struct {
 	Ctx context.Context  // context used in connection to Firestore
 	Fb  firestore.Client // client used in connection to Firestore
