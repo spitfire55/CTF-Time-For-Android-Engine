@@ -1,4 +1,7 @@
-package engine
+// Copyright 2017-2018 Dale Lakes <spitfire@spitfy.re>. All rights reserved.
+// Use of this source code is governed by the MIT license located in the LICENSE file.
+
+package goctftime
 
 import (
 	"context"
@@ -8,21 +11,6 @@ import (
 	"google.golang.org/appengine"
 )
 
-// UpdateTeamsHandler handles any requests to <engine_hostname_or_ip>/teams. In order to use 'debug mode', which limits the
-// maximum number of teams requested to 5, set the query key 'debug' to true in the request.
-// The handler operates in two phases.
-//
-// First Phase
-//
-// The first phase triggers multiple goroutines to parse and store teams concurrently. By default, the maximum number of
-// goroutines is 5. To change the maximum number of goroutines running at once, modify the maxRoutines variable.
-// This concurrent phase only requests pages that we have scraped before.
-//
-// Second Phase
-//
-// The second phase operates on the main thread and checks to see if a new team exists. If a new team exists, it is parsed
-// and stored in Firestore. Once phase two has reached the final page, the final page value is updated and stored in
-// Firestore.
 func UpdateTeamsHandler(w http.ResponseWriter, r *http.Request) {
 	var highestTeamId int
 	var debug bool

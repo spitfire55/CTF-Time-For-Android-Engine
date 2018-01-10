@@ -1,4 +1,7 @@
-package engine
+// Copyright 2017-2018 Dale Lakes <spitfire@spitfy.re>. All rights reserved.
+// Use of this source code is governed by the MIT license located in the LICENSE file.
+
+package goctftime
 
 import (
 	"github.com/PuerkitoBio/goquery"

@@ -1,4 +1,7 @@
-package engine
+// Copyright 2017-2018 Dale Lakes <spitfire@spitfy.re>. All rights reserved.
+// Use of this source code is governed by the MIT license located in the LICENSE file.
+
+package goctftime
 
 import (
 	"crypto/sha256"
@@ -23,6 +26,7 @@ func Fetch(url string) (*http.Response, error) {
 	return resp, nil
 }
 
+// CalculateHash calculates the sha256 hash of a data structure.
 func CalculateHash(data interface{}) string {
 	sha256Hash := sha256.New()
 	sha256Hash.Write([]byte(fmt.Sprintf("%#v", data)))

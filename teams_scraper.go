@@ -1,4 +1,7 @@
-package engine
+// Copyright 2017-2018 Dale Lakes <spitfire@spitfy.re>. All rights reserved.
+// Use of this source code is governed by the MIT license located in the LICENSE file.
+
+package goctftime
 
 import (
 	"github.com/PuerkitoBio/goquery"
@@ -17,6 +20,7 @@ type Team struct { // key = Team ID
 	Logo        string // relative URL
 	Members     []Member
 	Name        string
+	Rankings    map[string]float64
 	// Social
 	Email      string
 	ICQ        string

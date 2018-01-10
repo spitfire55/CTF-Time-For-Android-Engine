@@ -1,4 +1,7 @@
-package engine
+// Copyright 2017-2018 Dale Lakes <spitfire@spitfy.re>. All rights reserved.
+// Use of this source code is governed by the MIT license located in the LICENSE file.
+
+package goctftime
 
 import (
 	"fmt"
@@ -6,9 +9,6 @@ import (
 	"strings"
 )
 
-// GetLastRankingsPageNumber retrieves the final rankings page number for a certain year from the Firestore database.
-// Specifically, it queries the rankings collection of the specific year for the lastPageNumber field in the LastPageNumber
-// document. If the collection, document, or field is not found or the value is not an integer, the return value is zero.
 func GetLastCtfId(fbc FirebaseContext) int {
 	lastPageNumberDoc, err := fbc.Fb.Collection("CTFs").Doc("LastCtfId").Get(fbc.Ctx)
 	if err != nil {

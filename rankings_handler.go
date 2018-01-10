@@ -1,4 +1,7 @@
-package engine
+// Copyright 2017-2018 Dale Lakes <spitfire@spitfy.re>. All rights reserved.
+// Use of this source code is governed by the MIT license located in the LICENSE file.
+
+package goctftime
 
 import (
 	"context"
@@ -8,22 +11,6 @@ import (
 	"google.golang.org/appengine"
 )
 
-// UpdateRankingsHandler handles any requests to <engine_hostname_or_ip>/rankings. In order to work correctly, the request must
-// include the query string 'year'. The year query value will be used to request the respective year's rankings from
-// ctftime.org. In order to use 'debug mode', which limits the maximum number of ranking pages requested to 2, set the query
-// key 'debug' to true in the request. This handler operates in two phases.
-//
-// First Phase
-//
-// The first phase triggers multiple goroutines to parse and store ranking pages concurrently. By default, the maximum number
-// of goroutines running at once is 10. To change the maximum number of goroutines running at once, modify the maxRoutines
-// variable. This concurrent phase only requests pages that we have scraped before.
-//
-// Second Phase
-//
-// The second phase operates on the main thread and checks to see if a new rankings page exists. If a new page exists, it is
-// parsed and stored in Firestore. Once we identify that phase two have reached the final page, the final page value is
-// updated and stored in Firestore.
 func UpdateRankingsHandler(w http.ResponseWriter, r *http.Request) {
 	var highestRankingsPage int
 	var debug bool

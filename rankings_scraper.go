@@ -1,4 +1,7 @@
-package engine
+// Copyright 2017-2018 Dale Lakes <spitfire@spitfy.re>. All rights reserved.
+// Use of this source code is governed by the MIT license located in the LICENSE file.
+
+package goctftime
 
 import (
 	"errors"
@@ -10,7 +13,6 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-// A Ranking represents a row in the ctftime.org Rankings
 type Ranking struct {
 	CountryId string
 	Events    int
@@ -20,12 +22,6 @@ type Ranking struct {
 	TeamName  string
 }
 
-// ParseAndStoreRankings parses the response body of a rankings page for the values needed to create a Ranking struct. Once
-// the page is parsed and an array of Rankings is created, the results are stored in the Firestore database IF the sha256
-// hash of the Rankings array is different from the hash stored in the Firestore database for the particular page. If the
-// final page parsed is a newly created page, no page hash document exists in the Firestore database. We then create a page
-// hash document along with the Ranking documents.
-// NOTE: The page hash is computed from an array of Rankings (i.e. after parsing), not from the response body of the request.
 func ParseAndStoreRankings(response *http.Response, pageNumber int, year string, fbc FirebaseContext) error {
 	var rankings []Ranking
 	pageNumDoc := fmt.Sprintf("Page%dHash", pageNumber)
