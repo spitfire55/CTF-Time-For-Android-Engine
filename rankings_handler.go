@@ -69,7 +69,7 @@ func UpdateRankingsHandler(w http.ResponseWriter, r *http.Request) {
 
 			rankingsUrl := fmt.Sprintf("https://ctftime.org/stats/%s?page=%d", year, teamId)
 			if response, err := Fetch(rankingsUrl); err != nil {
-				fmt.Println(err.Error())
+				return	
 			} else if err := ParseAndStoreRankings(response, teamId, year, fbc); err != nil {
 				fmt.Println(err.Error())
 			}
