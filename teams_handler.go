@@ -62,7 +62,7 @@ func UpdateTeamsHandler(w http.ResponseWriter, r *http.Request) {
 
 			teamUrl := fmt.Sprintf("https://ctftime.org/team/%d", teamId)
 			if response, err := Fetch(teamUrl); err != nil {
-				fmt.Println(err.Error())
+				return
 			} else if err = ParseAndStoreTeam(teamId, response, fbc); err != nil {
 				fmt.Println(err.Error())
 			}

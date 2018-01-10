@@ -62,7 +62,7 @@ func UpdateCtfsHandler(w http.ResponseWriter, r *http.Request) {
 
 			ctfUrl := fmt.Sprintf("https://ctftime.org/ctf/%d", ctfId)
 			if response, err := Fetch(ctfUrl); err != nil {
-				fmt.Println(err.Error())
+				return
 			} else if err := ParseAndStoreCtf(ctfId, response, fbc); err != nil {
 				fmt.Println(err.Error())
 			}
