@@ -14,7 +14,11 @@ import (
 // Fetch executes a GET request to a URL. If the response status code is not 200, an error is returned specifying which URL
 // failed and the status code of the request.
 func Fetch(url string) (*http.Response, error) {
-	client := http.Client{}
+	client := http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err
