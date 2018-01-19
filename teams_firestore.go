@@ -36,7 +36,7 @@ func StoreTeam(teamId int, team Team, fbc FirebaseContext) error {
 	return nil
 }
 
-func TeamHashDiff(id int, team Team, fbc FirebaseContext) (bool, error) {
+func CompareTeamHash(id int, team Team, fbc FirebaseContext) (bool, error) {
 	hashDoc, err := fbc.Fb.Collection("Teams").Doc(strconv.Itoa(id)).Get(fbc.Ctx)
 	if err != nil {
 		// Team not found, return true to create it

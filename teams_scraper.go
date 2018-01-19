@@ -14,14 +14,15 @@ import (
 type Team struct { // key = Team ID
 	Hash string
 	// General
-	Aliases     []string
-	Academic    string
-	CountryCode string
-	Description string
-	Logo        string // relative URL
-	Members     []Member
-	Name        string
-	Scores      map[string]float64
+	Aliases             []string
+	Academic            string
+	CountryCode         string
+	Description         string
+	Logo                string // relative URL
+	Members             []Member
+	Name                string
+	NameCaseInsensitive string
+	Scores              map[string]float64
 	// Social
 	Email      string
 	ICQ        string
@@ -90,6 +91,7 @@ func ParseAndStoreTeam(teamId int, resp *http.Response, fbc FirebaseContext) err
 	})
 
 	team.Name = rootSel.Find(".breadcrumb .active").Text()
+	team.NameCaseInsensitive = strings.ToLower(team.Name)
 
 	for year := 2011; year < 2018; year++ {
 		yearStr := strconv.Itoa(year)
@@ -99,7 +101,7 @@ func ParseAndStoreTeam(teamId int, resp *http.Response, fbc FirebaseContext) err
 
 	teamHash := CalculateHash(team)
 	team.Hash = teamHash
-	hashDiff, err := TeamHashDiff(teamId, team, fbc)
+	hashDiff, err := CompareTeamHash(teamId, team, fbc)
 	if err != nil {
 		return err
 	}

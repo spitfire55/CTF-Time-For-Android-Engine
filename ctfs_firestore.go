@@ -42,7 +42,7 @@ func StoreCtf(ctfId int, ctf Ctf, fbc FirebaseContext) error {
 	return nil
 }
 
-func CtfHashDiff(id int, ctf Ctf, fbc FirebaseContext) (bool, error) {
+func CompareCtfHash(id int, ctf Ctf, fbc FirebaseContext) (bool, error) {
 	hashDoc, err := fbc.Fb.Collection("CTFs").Doc(strconv.Itoa(id)).Get(fbc.Ctx)
 	if err != nil {
 		// Ctf not found, return true to create it

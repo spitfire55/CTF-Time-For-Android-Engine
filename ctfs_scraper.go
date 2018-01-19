@@ -31,7 +31,7 @@ func ParseAndStoreCtf(ctfId int, resp *http.Response, fbc FirebaseContext) error
 
 	ctfHash := CalculateHash(ctf)
 	ctf.Hash = ctfHash
-	hashDiff, err := CtfHashDiff(ctfId, ctf, fbc)
+	hashDiff, err := CompareCtfsHash(ctfId, ctf, fbc)
 	if err != nil {
 		return err
 	}
