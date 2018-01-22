@@ -22,7 +22,7 @@ type Team struct { // key = Team ID
 	Members             []Member
 	Name                string
 	NameCaseInsensitive string
-	Scores              map[string]float64
+	Scores              map[string]Score
 	// Social
 	Email      string
 	ICQ        string
@@ -35,6 +35,11 @@ type Team struct { // key = Team ID
 	Website    string
 }
 
+type Score struct {
+	Points float64
+	Rank   int
+}
+
 type Member struct {
 	Id   int
 	Name string
@@ -42,7 +47,7 @@ type Member struct {
 
 func ParseAndStoreTeam(teamId int, resp *http.Response, fbc FirebaseContext) error {
 	var team Team
-	team.Scores = make(map[string]float64)
+	team.Scores = make(map[string]Score)
 	rootSel, err := goquery.NewDocumentFromResponse(resp)
 	if err != nil {
 		return err
@@ -96,7 +101,13 @@ func ParseAndStoreTeam(teamId int, resp *http.Response, fbc FirebaseContext) err
 	for year := 2011; year < 2018; year++ {
 		yearStr := strconv.Itoa(year)
 		findStr := fmt.Sprintf("#rating_%s p b", yearStr)
-		team.Scores[yearStr], _ = strconv.ParseFloat(rootSel.Find(findStr).Last().Text(), 64)
+		yearPoints, _ := strconv.ParseFloat(rootSel.Find(findStr).Last().Text(), 64)
+		yearRankStripped := strings.TrimSpace(rootSel.Find(findStr).First().Text())
+		yearRank, _ := strconv.Atoi(yearRankStripped)
+		team.Scores[yearStr] = Score{
+			yearPoints,
+			yearRank,
+		}
 	}
 
 	teamHash := CalculateHash(team)
