@@ -112,12 +112,11 @@ func ParseAndStoreTeam(teamId int, resp *http.Response, fbc FirebaseContext) err
 
 	teamHash := CalculateHash(team)
 	team.Hash = teamHash
-	fmt.Printf("%#v\n", team)
 	hashDiff, err := CompareTeamHash(teamId, team, fbc)
 	if err != nil {
 		return err
 	}
-	if hashDiff || true {
+	if hashDiff {
 		err = StoreTeam(teamId, team, fbc)
 		if err != nil {
 			return err
