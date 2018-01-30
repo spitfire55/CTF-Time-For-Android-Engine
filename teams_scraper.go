@@ -93,7 +93,7 @@ func ParseAndStoreTeam(teamId int, resp *http.Response, fbc FirebaseContext) err
 	team.Name = rootSel.Find(".breadcrumb .active").Text()
 	team.NameCaseInsensitive = strings.ToLower(team.Name)
 
-	for year := 2011; year < 2018; year++ {
+	for year := 2011; year < 2019; year++ {
 		yearStr := strconv.Itoa(year)
 		findStr := fmt.Sprintf("#rating_%s p b", yearStr)
 		team.Scores[yearStr], _ = strconv.ParseFloat(rootSel.Find(findStr).Last().Text(), 64)
@@ -101,11 +101,12 @@ func ParseAndStoreTeam(teamId int, resp *http.Response, fbc FirebaseContext) err
 
 	teamHash := CalculateHash(team)
 	team.Hash = teamHash
+	fmt.Printf("%#v\n", team)
 	hashDiff, err := CompareTeamHash(teamId, team, fbc)
 	if err != nil {
 		return err
 	}
-	if hashDiff {
+	if hashDiff || true {
 		err = StoreTeam(teamId, team, fbc)
 		if err != nil {
 			return err
